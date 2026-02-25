@@ -76,7 +76,13 @@ public sealed class TelemetryDbConnection : DbConnection
 
     /// <inheritdoc/>
     protected override DbTransaction BeginDbTransaction(IsolationLevel isolationLevel) =>
-        _inner.BeginTransaction(isolationLevel);
+        new TelemetryDbTransaction(_inner.BeginTransaction(isolationLevel), this);
+
+    /// <inheritdoc/>
+    protected override async ValueTask<DbTransaction> BeginDbTransactionAsync(IsolationLevel isolationLevel, CancellationToken cancellationToken) =>
+        new TelemetryDbTransaction(
+            await _inner.BeginTransactionAsync(isolationLevel, cancellationToken).ConfigureAwait(false),
+            this);
 
     /// <inheritdoc/>
     protected override DbCommand CreateDbCommand()

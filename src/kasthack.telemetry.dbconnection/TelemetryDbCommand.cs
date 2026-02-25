@@ -79,7 +79,7 @@ public sealed class TelemetryDbCommand : DbCommand
     protected override DbTransaction? DbTransaction
     {
         get => _inner.Transaction;
-        set => _inner.Transaction = value;
+        set => _inner.Transaction = value is TelemetryDbTransaction t ? t.InnerTransaction : value;
     }
 
     /// <inheritdoc/>

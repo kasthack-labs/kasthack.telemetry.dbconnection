@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <!-- Library projects under development -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\kasthack.telemetry.dbconnection\kasthack.telemetry.dbconnection.csproj" />
+    <ProjectReference Include="..\..\src\kasthack.telemetry.dbconnection.ef\kasthack.telemetry.dbconnection.ef.csproj" />
+    <ProjectReference Include="..\..\src\kasthack.telemetry.dbconnection.di\kasthack.telemetry.dbconnection.di.csproj" />
+  </ItemGroup>
+
+  <!-- SQLite in-process database (no server required) -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.3" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.3" />
+  </ItemGroup>
+
+  <!-- DI + logging infrastructure -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.3" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="10.0.3" />
+  </ItemGroup>
+
+  <!-- OpenTelemetry SDK + console exporter to see output without a collector -->
+  <ItemGroup>
+    <PackageReference Include="OpenTelemetry" Version="1.11.2" />
+    <PackageReference Include="OpenTelemetry.Exporter.Console" Version="1.11.2" />
+  </ItemGroup>
+
+</Project>
