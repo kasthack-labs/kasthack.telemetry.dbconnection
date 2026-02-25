@@ -68,11 +68,11 @@ public sealed class TelemetryDbConnection : DbConnection
     public override void Close() => _inner.Close();
 
     /// <inheritdoc/>
-    public override void Open() => ExecuteInstrumented(null, _inner.Open);
+    public override void Open() => ExecuteInstrumented("connect", _inner.Open);
 
     /// <inheritdoc/>
     public override Task OpenAsync(CancellationToken cancellationToken) =>
-        ExecuteInstrumentedAsync(null, () => _inner.OpenAsync(cancellationToken));
+        ExecuteInstrumentedAsync("connect", () => _inner.OpenAsync(cancellationToken));
 
     /// <inheritdoc/>
     protected override DbTransaction BeginDbTransaction(IsolationLevel isolationLevel) =>
@@ -225,12 +225,31 @@ public sealed class TelemetryDbConnection : DbConnection
     // ── DRY execution wrappers ───────────────────────────────────────────────
 
     internal void ExecuteInstrumented(DbCommand? command, Action action) =>
-        ExecuteInstrumented<int>(command, () => { action(); return 0; });
+        ExecuteInstrumentedCore<int>(GetOperationName(command), command?.CommandText, command, () => { action(); return 0; });
 
-    internal T ExecuteInstrumented<T>(DbCommand? command, Func<T> action)
+    internal T ExecuteInstrumented<T>(DbCommand? command, Func<T> action) =>
+        ExecuteInstrumentedCore<T>(GetOperationName(command), command?.CommandText, command, action);
+
+    internal void ExecuteInstrumented(string operationName, Action action) =>
+        ExecuteInstrumentedCore<int>(operationName, null, null, () => { action(); return 0; });
+
+    internal T ExecuteInstrumented<T>(string operationName, Func<T> action) =>
+        ExecuteInstrumentedCore<T>(operationName, null, null, action);
+
+    internal Task ExecuteInstrumentedAsync(DbCommand? command, Func<Task> action) =>
+        ExecuteInstrumentedAsyncCore<int>(GetOperationName(command), command?.CommandText, command, async () => { await action().ConfigureAwait(false); return 0; });
+
+    internal Task<T> ExecuteInstrumentedAsync<T>(DbCommand? command, Func<Task<T>> action) =>
+        ExecuteInstrumentedAsyncCore<T>(GetOperationName(command), command?.CommandText, command, action);
+
+    internal Task ExecuteInstrumentedAsync(string operationName, Func<Task> action) =>
+        ExecuteInstrumentedAsyncCore<int>(operationName, null, null, async () => { await action().ConfigureAwait(false); return 0; });
+
+    internal Task<T> ExecuteInstrumentedAsync<T>(string operationName, Func<Task<T>> action) =>
+        ExecuteInstrumentedAsyncCore<T>(operationName, null, null, action);
+
+    private T ExecuteInstrumentedCore<T>(string operationName, string? statement, DbCommand? command, Func<T> action)
     {
-        var operationName = GetOperationName(command);
-        var statement = command?.CommandText;
         using var activity = StartActivity(operationName, statement, command);
         var start = Stopwatch.GetTimestamp();
         var hadError = false;
@@ -250,13 +269,8 @@ public sealed class TelemetryDbConnection : DbConnection
         }
     }
 
-    internal Task ExecuteInstrumentedAsync(DbCommand? command, Func<Task> action) =>
-        ExecuteInstrumentedAsync<int>(command, async () => { await action().ConfigureAwait(false); return 0; });
-
-    internal async Task<T> ExecuteInstrumentedAsync<T>(DbCommand? command, Func<Task<T>> action)
+    private async Task<T> ExecuteInstrumentedAsyncCore<T>(string operationName, string? statement, DbCommand? command, Func<Task<T>> action)
     {
-        var operationName = GetOperationName(command);
-        var statement = command?.CommandText;
         using var activity = StartActivity(operationName, statement, command);
         var start = Stopwatch.GetTimestamp();
         var hadError = false;

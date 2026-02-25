@@ -36,41 +36,46 @@ internal sealed class TelemetryDbTransaction : DbTransaction
     // ── Commit / Rollback ────────────────────────────────────────────────────
 
     /// <inheritdoc/>
-    public override void Commit() => _inner.Commit();
+    public override void Commit() =>
+        _connection.ExecuteInstrumented("commit", _inner.Commit);
 
     /// <inheritdoc/>
     public override Task CommitAsync(CancellationToken cancellationToken = default) =>
-        _inner.CommitAsync(cancellationToken);
+        _connection.ExecuteInstrumentedAsync("commit", () => _inner.CommitAsync(cancellationToken));
 
     /// <inheritdoc/>
-    public override void Rollback() => _inner.Rollback();
+    public override void Rollback() =>
+        _connection.ExecuteInstrumented("rollback", _inner.Rollback);
 
     /// <inheritdoc/>
     public override Task RollbackAsync(CancellationToken cancellationToken = default) =>
-        _inner.RollbackAsync(cancellationToken);
+        _connection.ExecuteInstrumentedAsync("rollback", () => _inner.RollbackAsync(cancellationToken));
 
     // ── Savepoints ───────────────────────────────────────────────────────────
 
     /// <inheritdoc/>
-    public override void Save(string savepointName) => _inner.Save(savepointName);
+    public override void Save(string savepointName) =>
+        _connection.ExecuteInstrumented("savepoint", () => _inner.Save(savepointName));
 
     /// <inheritdoc/>
     public override Task SaveAsync(string savepointName, CancellationToken cancellationToken = default) =>
-        _inner.SaveAsync(savepointName, cancellationToken);
+        _connection.ExecuteInstrumentedAsync("savepoint", () => _inner.SaveAsync(savepointName, cancellationToken));
 
     /// <inheritdoc/>
-    public override void Rollback(string savepointName) => _inner.Rollback(savepointName);
+    public override void Rollback(string savepointName) =>
+        _connection.ExecuteInstrumented("rollback_to_savepoint", () => _inner.Rollback(savepointName));
 
     /// <inheritdoc/>
     public override Task RollbackAsync(string savepointName, CancellationToken cancellationToken = default) =>
-        _inner.RollbackAsync(savepointName, cancellationToken);
+        _connection.ExecuteInstrumentedAsync("rollback_to_savepoint", () => _inner.RollbackAsync(savepointName, cancellationToken));
 
     /// <inheritdoc/>
-    public override void Release(string savepointName) => _inner.Release(savepointName);
+    public override void Release(string savepointName) =>
+        _connection.ExecuteInstrumented("release_savepoint", () => _inner.Release(savepointName));
 
     /// <inheritdoc/>
     public override Task ReleaseAsync(string savepointName, CancellationToken cancellationToken = default) =>
-        _inner.ReleaseAsync(savepointName, cancellationToken);
+        _connection.ExecuteInstrumentedAsync("release_savepoint", () => _inner.ReleaseAsync(savepointName, cancellationToken));
 
     // ── Disposal ─────────────────────────────────────────────────────────────
 

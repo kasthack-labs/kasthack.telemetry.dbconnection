@@ -4,12 +4,22 @@
 [![GitHub release](https://img.shields.io/github/release/kasthack-labs/kasthack.telemetry.dbconnection.svg)](https://github.com/kasthack-labs/kasthack.telemetry.dbconnection/releases/latest)
 [![license](https://img.shields.io/github/license/kasthack-labs/kasthack.telemetry.dbconnection.svg)](LICENSE)
 [![.NET Status](https://github.com/kasthack-labs/kasthack.telemetry.dbconnection/workflows/.NET/badge.svg)](https://github.com/kasthack-labs/kasthack.telemetry.dbconnection/actions?query=workflow%3A.NET)
+[![NuGet](https://img.shields.io/nuget/v/kasthack.telemetry.dbconnection.svg)](https://www.nuget.org/packages/kasthack.telemetry.dbconnection/)
+[![NuGet EF](https://img.shields.io/nuget/v/kasthack.telemetry.dbconnection.ef.svg)](https://www.nuget.org/packages/kasthack.telemetry.dbconnection.ef/)
+[![NuGet DI](https://img.shields.io/nuget/v/kasthack.telemetry.dbconnection.di.svg)](https://www.nuget.org/packages/kasthack.telemetry.dbconnection.di/)
 [![Patreon pledges](https://img.shields.io/endpoint.svg?url=https%3A%2F%2Fshieldsio-patreon.vercel.app%2Fapi%3Fusername%3Dkasthack%26type%3Dpledges&style=flat)](https://patreon.com/kasthack)
 [![Patreon patrons](https://img.shields.io/endpoint.svg?url=https%3A%2F%2Fshieldsio-patreon.vercel.app%2Fapi%3Fusername%3Dkasthack%26type%3Dpatrons&style=flat)](https://patreon.com/kasthack)
 
 ## What
 
 A set of .NET NuGet packages that wrap any `DbConnection` with OpenTelemetry-compatible **distributed traces** (`ActivitySource`) and **metrics** (`Meter` / `Histogram`), following the [OpenTelemetry database semantic conventions](https://opentelemetry.io/docs/specs/semconv/database/).
+
+## Why does this exist?
+
+- **Uniformity across drivers** — a single instrumentation layer works identically with SQLite, SQL Server, PostgreSQL, MySQL, or any other ADO.NET provider, without per-driver plugins.
+- **.NET Framework / netstandard support** — targets `netstandard2.0` so it works in legacy .NET Framework applications as well as modern .NET.
+- **Transaction instrumentation** — `Commit`, `Rollback`, `Save`/`Release` savepoints are all measured and traced, not just query execution.
+- **Correct reader timing** — the span for `ExecuteReader` stays open until the `DbDataReader` is disposed, capturing the full time spent reading rows; built-in SqlClient tracing closes the span at execute time and misses reader duration.
 
 ### Packages
 
@@ -24,6 +34,7 @@ A set of .NET NuGet packages that wrap any `DbConnection` with OpenTelemetry-com
 - **Connection open** (`Open` / `OpenAsync`) — separate named operation `connect`
 - **Command execution** (`ExecuteNonQuery`, `ExecuteScalar`, `ExecuteReader` — sync and async) — operation name derived from the first SQL keyword (e.g. `SELECT`, `INSERT`)
 - **Reader lifetime** — for `ExecuteReader`, the span stays open until the `DbDataReader` is disposed
+- **Transaction operations** (`Commit`, `Rollback`, `Save`/`Rollback`/`Release` savepoints — sync and async) — each produces its own span and metric
 - Each execution of a reused command produces its own span and metric
 
 ### Tags (semantic conventions)
