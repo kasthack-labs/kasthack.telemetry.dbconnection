@@ -163,9 +163,7 @@ public sealed class TelemetryDbDataReader : DbDataReader
     {
         if (disposing && !_disposed)
         {
-            _disposed = true;
-            _connection.RecordDuration(_startTimestamp, _operation, _dbStatement, hadError: false);
-            _activity?.Dispose();
+            FinishMeasurement();
             _inner.Dispose();
         }
 
@@ -177,12 +175,17 @@ public sealed class TelemetryDbDataReader : DbDataReader
     {
         if (!_disposed)
         {
-            _disposed = true;
-            _connection.RecordDuration(_startTimestamp, _operation, _dbStatement, hadError: false);
-            _activity?.Dispose();
+            FinishMeasurement();
             await _inner.DisposeAsync().ConfigureAwait(false);
         }
 
         await base.DisposeAsync().ConfigureAwait(false);
+    }
+
+    private void FinishMeasurement()
+    {
+        _disposed = true;
+        _connection.RecordDuration(_startTimestamp, _operation, _dbStatement, null, hadError: false);
+        _activity?.Dispose();
     }
 }

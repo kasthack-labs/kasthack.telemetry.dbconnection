@@ -95,29 +95,30 @@ public sealed class TelemetryDbCommand : DbCommand
 
     /// <inheritdoc/>
     public override int ExecuteNonQuery() =>
-        _connection.ExecuteInstrumented(GetOperation(), CommandText, _inner.ExecuteNonQuery);
+        _connection.ExecuteInstrumented(_inner, _inner.ExecuteNonQuery);
 
     /// <inheritdoc/>
     public override object? ExecuteScalar() =>
-        _connection.ExecuteInstrumented<object?>(GetOperation(), CommandText, _inner.ExecuteScalar);
+        _connection.ExecuteInstrumented<object?>(_inner, _inner.ExecuteScalar);
 
     /// <inheritdoc/>
     protected override DbDataReader ExecuteDbDataReader(CommandBehavior behavior)
     {
-        var operation = GetOperation();
+        var operationName = TelemetryDbConnection.GetOperationName(_inner);
+        var dbStatement = _inner.CommandText;
 
         // The activity lifetime is handed off to the reader; do NOT use 'using' here.
-        var activity = _connection.StartActivity(operation, CommandText);
+        var activity = _connection.StartActivity(operationName, dbStatement, _inner);
         var startTimestamp = Stopwatch.GetTimestamp();
         try
         {
             var reader = _inner.ExecuteReader(behavior);
-            return new TelemetryDbDataReader(reader, _connection, activity, startTimestamp, operation, CommandText);
+            return new TelemetryDbDataReader(reader, _connection, activity, startTimestamp, operationName, dbStatement);
         }
         catch (Exception ex)
         {
             TelemetryDbConnection.SetActivityError(activity, ex);
-            _connection.RecordDuration(startTimestamp, operation, CommandText, hadError: true);
+            _connection.RecordDuration(startTimestamp, operationName, dbStatement, _inner, hadError: true);
             activity?.Dispose();
             throw;
         }
@@ -127,29 +128,30 @@ public sealed class TelemetryDbCommand : DbCommand
 
     /// <inheritdoc/>
     public override Task<int> ExecuteNonQueryAsync(CancellationToken cancellationToken) =>
-        _connection.ExecuteInstrumentedAsync(GetOperation(), CommandText, () => _inner.ExecuteNonQueryAsync(cancellationToken));
+        _connection.ExecuteInstrumentedAsync(_inner, () => _inner.ExecuteNonQueryAsync(cancellationToken));
 
     /// <inheritdoc/>
     public override Task<object?> ExecuteScalarAsync(CancellationToken cancellationToken) =>
-        _connection.ExecuteInstrumentedAsync<object?>(GetOperation(), CommandText, () => _inner.ExecuteScalarAsync(cancellationToken));
+        _connection.ExecuteInstrumentedAsync<object?>(_inner, () => _inner.ExecuteScalarAsync(cancellationToken));
 
     /// <inheritdoc/>
     protected override async Task<DbDataReader> ExecuteDbDataReaderAsync(CommandBehavior behavior, CancellationToken cancellationToken)
     {
-        var operation = GetOperation();
+        var operationName = TelemetryDbConnection.GetOperationName(_inner);
+        var dbStatement = _inner.CommandText;
 
         // The activity lifetime is handed off to the reader; do NOT use 'using' here.
-        var activity = _connection.StartActivity(operation, CommandText);
+        var activity = _connection.StartActivity(operationName, dbStatement, _inner);
         var startTimestamp = Stopwatch.GetTimestamp();
         try
         {
             var reader = await _inner.ExecuteReaderAsync(behavior, cancellationToken).ConfigureAwait(false);
-            return new TelemetryDbDataReader(reader, _connection, activity, startTimestamp, operation, CommandText);
+            return new TelemetryDbDataReader(reader, _connection, activity, startTimestamp, operationName, dbStatement);
         }
         catch (Exception ex)
         {
             TelemetryDbConnection.SetActivityError(activity, ex);
-            _connection.RecordDuration(startTimestamp, operation, CommandText, hadError: true);
+            _connection.RecordDuration(startTimestamp, operationName, dbStatement, _inner, hadError: true);
             activity?.Dispose();
             throw;
         }
@@ -164,20 +166,5 @@ public sealed class TelemetryDbCommand : DbCommand
         }
 
         base.Dispose(disposing);
-    }
-
-    // ── Private helpers ──────────────────────────────────────────────────────
-
-    private string GetOperation()
-    {
-        var text = CommandText?.TrimStart();
-        if (string.IsNullOrEmpty(text))
-        {
-            return "execute";
-        }
-
-        var spaceIndex = text.IndexOfAny([' ', '\t', '\r', '\n']);
-        var firstWord = spaceIndex < 0 ? text : text[..spaceIndex];
-        return firstWord.ToUpperInvariant();
     }
 }

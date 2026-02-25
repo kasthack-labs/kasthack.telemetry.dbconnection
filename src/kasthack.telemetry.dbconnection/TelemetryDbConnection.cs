@@ -68,11 +68,11 @@ public sealed class TelemetryDbConnection : DbConnection
     public override void Close() => _inner.Close();
 
     /// <inheritdoc/>
-    public override void Open() => ExecuteInstrumented("connect", null, _inner.Open);
+    public override void Open() => ExecuteInstrumented(null, _inner.Open);
 
     /// <inheritdoc/>
     public override Task OpenAsync(CancellationToken cancellationToken) =>
-        ExecuteInstrumentedAsync("connect", null, () => _inner.OpenAsync(cancellationToken));
+        ExecuteInstrumentedAsync(null, () => _inner.OpenAsync(cancellationToken));
 
     /// <inheritdoc/>
     protected override DbTransaction BeginDbTransaction(IsolationLevel isolationLevel) =>
@@ -99,7 +99,7 @@ public sealed class TelemetryDbConnection : DbConnection
 
     // ── Internal helpers used by TelemetryDbCommand ─────────────────────────
 
-    internal Activity? StartActivity(string operationName, string? dbStatement)
+    internal Activity? StartActivity(string operationName, string? dbStatement, DbCommand? command = null)
     {
         if (!_options.EmitTraces)
         {
@@ -118,14 +118,14 @@ public sealed class TelemetryDbConnection : DbConnection
         activity.SetTag(DbSemanticConventions.DbName, Database);
         activity.SetTag(DbSemanticConventions.DbOperation, operationName);
 
-        if (dbStatement is not null)
+        if (dbStatement is not null && _options.CaptureStatements)
         {
             activity.SetTag(DbSemanticConventions.DbStatement, dbStatement);
         }
 
         try
         {
-            _options.EnrichActivity?.Invoke(activity, _inner);
+            _options.EnrichActivity?.Invoke(activity, command);
         }
 #pragma warning disable CA1031 // Catching Exception is intentional: user callbacks must never break the operation
         catch (Exception ex)
@@ -140,7 +140,7 @@ public sealed class TelemetryDbConnection : DbConnection
         return activity;
     }
 
-    internal void RecordDuration(long startTimestamp, string operationName, string? dbStatement, bool hadError)
+    internal void RecordDuration(long startTimestamp, string operationName, string? dbStatement, DbCommand? command, bool hadError)
     {
         if (!_options.EmitMetrics)
         {
@@ -154,7 +154,7 @@ public sealed class TelemetryDbConnection : DbConnection
             new(DbSemanticConventions.DbOperation, operationName),
         };
 
-        if (dbStatement is not null)
+        if (dbStatement is not null && _options.CaptureStatements)
         {
             tags.Add(new(DbSemanticConventions.DbStatement, dbStatement));
         }
@@ -166,7 +166,7 @@ public sealed class TelemetryDbConnection : DbConnection
 
         try
         {
-            _options.EnrichMetrics?.Invoke(tags, _inner);
+            _options.EnrichMetrics?.Invoke(tags, command);
         }
 #pragma warning disable CA1031 // Catching Exception is intentional: user callbacks must never break the operation
         catch (Exception ex)
@@ -198,32 +198,34 @@ public sealed class TelemetryDbConnection : DbConnection
         activity.SetTag(DbSemanticConventions.ErrorType, ex.GetType().FullName);
     }
 
-    // ── DRY execution wrappers ───────────────────────────────────────────────
-
-    internal void ExecuteInstrumented(string operation, string? statement, Action action)
+    /// <summary>Derives the OTel <c>db.operation</c> name from a command's text.</summary>
+    internal static string GetOperationName(DbCommand? command)
     {
-        using var activity = StartActivity(operation, statement);
-        var start = Stopwatch.GetTimestamp();
-        var hadError = false;
-        try
+        if (command is null)
         {
-            action();
+            return "connect";
         }
-        catch (Exception ex)
+
+        var text = command.CommandText?.TrimStart();
+        if (string.IsNullOrEmpty(text))
         {
-            hadError = true;
-            SetActivityError(activity, ex);
-            throw;
+            return "execute";
         }
-        finally
-        {
-            RecordDuration(start, operation, statement, hadError);
-        }
+
+        var spaceIndex = text.IndexOfAny([' ', '\t', '\r', '\n']);
+        return spaceIndex < 0 ? text.ToUpperInvariant() : text[..spaceIndex].ToUpperInvariant();
     }
 
-    internal T ExecuteInstrumented<T>(string operation, string? statement, Func<T> action)
+    // ── DRY execution wrappers ───────────────────────────────────────────────
+
+    internal void ExecuteInstrumented(DbCommand? command, Action action) =>
+        ExecuteInstrumented<int>(command, () => { action(); return 0; });
+
+    internal T ExecuteInstrumented<T>(DbCommand? command, Func<T> action)
     {
-        using var activity = StartActivity(operation, statement);
+        var operationName = GetOperationName(command);
+        var statement = command?.CommandText;
+        using var activity = StartActivity(operationName, statement, command);
         var start = Stopwatch.GetTimestamp();
         var hadError = false;
         try
@@ -238,34 +240,18 @@ public sealed class TelemetryDbConnection : DbConnection
         }
         finally
         {
-            RecordDuration(start, operation, statement, hadError);
+            RecordDuration(start, operationName, statement, command, hadError);
         }
     }
 
-    internal async Task ExecuteInstrumentedAsync(string operation, string? statement, Func<Task> action)
-    {
-        using var activity = StartActivity(operation, statement);
-        var start = Stopwatch.GetTimestamp();
-        var hadError = false;
-        try
-        {
-            await action().ConfigureAwait(false);
-        }
-        catch (Exception ex)
-        {
-            hadError = true;
-            SetActivityError(activity, ex);
-            throw;
-        }
-        finally
-        {
-            RecordDuration(start, operation, statement, hadError);
-        }
-    }
+    internal Task ExecuteInstrumentedAsync(DbCommand? command, Func<Task> action) =>
+        ExecuteInstrumentedAsync<int>(command, async () => { await action().ConfigureAwait(false); return 0; });
 
-    internal async Task<T> ExecuteInstrumentedAsync<T>(string operation, string? statement, Func<Task<T>> action)
+    internal async Task<T> ExecuteInstrumentedAsync<T>(DbCommand? command, Func<Task<T>> action)
     {
-        using var activity = StartActivity(operation, statement);
+        var operationName = GetOperationName(command);
+        var statement = command?.CommandText;
+        using var activity = StartActivity(operationName, statement, command);
         var start = Stopwatch.GetTimestamp();
         var hadError = false;
         try
@@ -280,7 +266,7 @@ public sealed class TelemetryDbConnection : DbConnection
         }
         finally
         {
-            RecordDuration(start, operation, statement, hadError);
+            RecordDuration(start, operationName, statement, command, hadError);
         }
     }
 }
