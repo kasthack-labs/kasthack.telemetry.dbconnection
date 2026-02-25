@@ -1,0 +1,21 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <PackageId>kasthack.telemetry.dbconnection.ef</PackageId>
+    <AssemblyName>kasthack.telemetry.dbconnection.ef</AssemblyName>
+    <RootNamespace>kasthack.telemetry.dbconnection.ef</RootNamespace>
+    <Description>Entity Framework Core interceptor that adds OpenTelemetry-compatible telemetry to database connections.</Description>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\kasthack.telemetry.dbconnection\kasthack.telemetry.dbconnection.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" />
+  </ItemGroup>
+
+</Project>

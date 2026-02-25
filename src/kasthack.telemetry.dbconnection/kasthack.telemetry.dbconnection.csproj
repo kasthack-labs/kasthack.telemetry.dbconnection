@@ -1,0 +1,12 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <PackageId>kasthack.telemetry.dbconnection</PackageId>
+    <AssemblyName>kasthack.telemetry.dbconnection</AssemblyName>
+    <RootNamespace>kasthack.telemetry.dbconnection</RootNamespace>
+    <Description>Core library for wrapping DbConnection with OpenTelemetry-compatible traces and metrics.</Description>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+</Project>

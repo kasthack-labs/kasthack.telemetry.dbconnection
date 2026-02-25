@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="kasthack.telemetry.dbconnection.ef/kasthack.telemetry.dbconnection.ef.csproj" />
+  <Project Path="kasthack.telemetry.dbconnection/kasthack.telemetry.dbconnection.csproj" />
+</Solution>
