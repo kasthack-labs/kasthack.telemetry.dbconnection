@@ -1,0 +1,58 @@
+<Project>
+  <PropertyGroup>
+    <!-- use the latest build target -->
+    <TargetFrameworks>net10.0</TargetFrameworks>
+    <LangVersion>latest</LangVersion>
+
+    <!-- defensive code style settings -->
+    
+    <!-- 1. enforce nullables-->
+    <Nullable>enable</Nullable>
+
+    <!-- 2. enforce code style -->
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+
+    <!-- 3. enable analyzers: https://learn.microsoft.com/en-us/dotnet/fundamentals/code-analysis/overview?tabs=net-7#code-style-analysis -->
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisMode>All</AnalysisMode> <!-- https://learn.microsoft.com/en-us/dotnet/core/project-sdk/msbuild-props#analysismode -->
+    <CodeAnalysisTreatWarningsAsErrors>false</CodeAnalysisTreatWarningsAsErrors>
+
+    <!-- 4. all warnings are errors -->
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+
+    <!-- Enable docs: https://learn.microsoft.com/en-us/dotnet/core/project-sdk/msbuild-props#publishdocumentationfile -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <PublishReferencesDocumentationFiles>true</PublishReferencesDocumentationFiles>
+    <PublishDocumentationFile>true</PublishDocumentationFile>
+    <PublishDocumentationFiles>true</PublishDocumentationFiles>
+
+    <!-- Nuget options -->
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+    <IsPackable>true</IsPackable>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageLicenseExpression>AGPL-3.0-or-later</PackageLicenseExpression>
+
+    <!-- Package validation: https://learn.microsoft.com/en-us/dotnet/fundamentals/package-validation/overview -->
+    <EnablePackageValidation>true</EnablePackageValidation>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- include readme in nuget package -->
+    <None Include="..\..\README.md" Pack="true" PackagePath="\"/>
+
+    <!-- Add stylecop and roslynator -->
+
+    <PackageReference Include="Roslynator.Analyzers">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Roslynator.CodeAnalysis.Analyzers">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Roslynator.Formatting.Analyzers" >
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+</Project>
