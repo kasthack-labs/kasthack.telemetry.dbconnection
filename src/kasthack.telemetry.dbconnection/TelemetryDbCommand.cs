@@ -94,50 +94,12 @@ public sealed class TelemetryDbCommand : DbCommand
     // ── Synchronous execute ──────────────────────────────────────────────────
 
     /// <inheritdoc/>
-    public override int ExecuteNonQuery()
-    {
-        var operation = GetOperation();
-        using var activity = _connection.StartActivity(operation, CommandText);
-        var startTimestamp = Stopwatch.GetTimestamp();
-        var hadError = false;
-        try
-        {
-            return _inner.ExecuteNonQuery();
-        }
-        catch (Exception ex)
-        {
-            hadError = true;
-            TelemetryDbConnection.SetActivityError(activity, ex);
-            throw;
-        }
-        finally
-        {
-            _connection.RecordDuration(startTimestamp, operation, CommandText, hadError);
-        }
-    }
+    public override int ExecuteNonQuery() =>
+        _connection.ExecuteInstrumented(GetOperation(), CommandText, _inner.ExecuteNonQuery);
 
     /// <inheritdoc/>
-    public override object? ExecuteScalar()
-    {
-        var operation = GetOperation();
-        using var activity = _connection.StartActivity(operation, CommandText);
-        var startTimestamp = Stopwatch.GetTimestamp();
-        var hadError = false;
-        try
-        {
-            return _inner.ExecuteScalar();
-        }
-        catch (Exception ex)
-        {
-            hadError = true;
-            TelemetryDbConnection.SetActivityError(activity, ex);
-            throw;
-        }
-        finally
-        {
-            _connection.RecordDuration(startTimestamp, operation, CommandText, hadError);
-        }
-    }
+    public override object? ExecuteScalar() =>
+        _connection.ExecuteInstrumented<object?>(GetOperation(), CommandText, _inner.ExecuteScalar);
 
     /// <inheritdoc/>
     protected override DbDataReader ExecuteDbDataReader(CommandBehavior behavior)
@@ -164,50 +126,12 @@ public sealed class TelemetryDbCommand : DbCommand
     // ── Asynchronous execute ─────────────────────────────────────────────────
 
     /// <inheritdoc/>
-    public override async Task<int> ExecuteNonQueryAsync(CancellationToken cancellationToken)
-    {
-        var operation = GetOperation();
-        using var activity = _connection.StartActivity(operation, CommandText);
-        var startTimestamp = Stopwatch.GetTimestamp();
-        var hadError = false;
-        try
-        {
-            return await _inner.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
-        }
-        catch (Exception ex)
-        {
-            hadError = true;
-            TelemetryDbConnection.SetActivityError(activity, ex);
-            throw;
-        }
-        finally
-        {
-            _connection.RecordDuration(startTimestamp, operation, CommandText, hadError);
-        }
-    }
+    public override Task<int> ExecuteNonQueryAsync(CancellationToken cancellationToken) =>
+        _connection.ExecuteInstrumentedAsync(GetOperation(), CommandText, () => _inner.ExecuteNonQueryAsync(cancellationToken));
 
     /// <inheritdoc/>
-    public override async Task<object?> ExecuteScalarAsync(CancellationToken cancellationToken)
-    {
-        var operation = GetOperation();
-        using var activity = _connection.StartActivity(operation, CommandText);
-        var startTimestamp = Stopwatch.GetTimestamp();
-        var hadError = false;
-        try
-        {
-            return await _inner.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
-        }
-        catch (Exception ex)
-        {
-            hadError = true;
-            TelemetryDbConnection.SetActivityError(activity, ex);
-            throw;
-        }
-        finally
-        {
-            _connection.RecordDuration(startTimestamp, operation, CommandText, hadError);
-        }
-    }
+    public override Task<object?> ExecuteScalarAsync(CancellationToken cancellationToken) =>
+        _connection.ExecuteInstrumentedAsync<object?>(GetOperation(), CommandText, () => _inner.ExecuteScalarAsync(cancellationToken));
 
     /// <inheritdoc/>
     protected override async Task<DbDataReader> ExecuteDbDataReaderAsync(CommandBehavior behavior, CancellationToken cancellationToken)

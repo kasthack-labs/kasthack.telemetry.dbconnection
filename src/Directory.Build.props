@@ -20,11 +20,15 @@
     <!-- 4. all warnings are errors -->
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
 
-    <!-- Enable docs: https://learn.microsoft.com/en-us/dotnet/core/project-sdk/msbuild-props#publishdocumentationfile -->
+    <!-- Enable doc gen: https://learn.microsoft.com/en-us/dotnet/core/project-sdk/msbuild-props#publishdocumentationfile -->
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <PublishReferencesDocumentationFiles>true</PublishReferencesDocumentationFiles>
     <PublishDocumentationFile>true</PublishDocumentationFile>
     <PublishDocumentationFiles>true</PublishDocumentationFiles>
+
+    <!-- Global code settings -->
+    <ImplicitUsings>enable</ImplicitUsings>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
 
     <!-- Nuget options -->
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>

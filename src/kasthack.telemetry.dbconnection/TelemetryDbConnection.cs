@@ -2,6 +2,7 @@ using System.Data;
 using System.Data.Common;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using Microsoft.Extensions.Logging;
 
 namespace kasthack.telemetry.dbconnection;
 
@@ -11,19 +12,30 @@ namespace kasthack.telemetry.dbconnection;
 /// </summary>
 public sealed class TelemetryDbConnection : DbConnection
 {
+    private static readonly Action<ILogger, Exception?> _logEnrichActivityError =
+        LoggerMessage.Define(LogLevel.Warning, new EventId(1, "EnrichActivityError"), "An exception occurred in the EnrichActivity callback.");
+
+    private static readonly Action<ILogger, Exception?> _logEnrichMetricsError =
+        LoggerMessage.Define(LogLevel.Warning, new EventId(2, "EnrichMetricsError"), "An exception occurred in the EnrichMetrics callback.");
+
     private readonly DbConnection _inner;
-    private readonly TelemetryDbConnectionFactory _factory;
+    private readonly TelemetryDbConnectionOptions _options;
+    private readonly ILogger? _logger;
+    private readonly StateChangeEventHandler _stateChangeHandler;
 
     /// <summary>
     /// Initializes a new instance of <see cref="TelemetryDbConnection"/>.
     /// </summary>
     /// <param name="connection">The underlying database connection to wrap.</param>
-    /// <param name="factory">The factory that owns this connection and supplies telemetry options.</param>
-    public TelemetryDbConnection(DbConnection connection, TelemetryDbConnectionFactory factory)
+    /// <param name="options">Telemetry options that control how traces and metrics are emitted.</param>
+    /// <param name="logger">Optional logger used to report errors from enrichment callbacks.</param>
+    public TelemetryDbConnection(DbConnection connection, TelemetryDbConnectionOptions options, ILogger? logger = null)
     {
         _inner = connection;
-        _factory = factory;
-        _inner.StateChange += OnInnerStateChange;
+        _options = options;
+        _logger = logger;
+        _stateChangeHandler = (_, e) => OnStateChange(e);
+        _inner.StateChange += _stateChangeHandler;
     }
 
     /// <summary>Gets the underlying <see cref="DbConnection"/> that this instance wraps.</summary>
@@ -56,48 +68,11 @@ public sealed class TelemetryDbConnection : DbConnection
     public override void Close() => _inner.Close();
 
     /// <inheritdoc/>
-    public override void Open()
-    {
-        using var activity = StartActivity(DbSemanticConventions.ConnectOperation, null);
-        var startTimestamp = Stopwatch.GetTimestamp();
-        var hadError = false;
-        try
-        {
-            _inner.Open();
-        }
-        catch (Exception ex)
-        {
-            hadError = true;
-            SetActivityError(activity, ex);
-            throw;
-        }
-        finally
-        {
-            RecordDuration(startTimestamp, DbSemanticConventions.ConnectOperation, null, hadError);
-        }
-    }
+    public override void Open() => ExecuteInstrumented("connect", null, _inner.Open);
 
     /// <inheritdoc/>
-    public override async Task OpenAsync(CancellationToken cancellationToken)
-    {
-        using var activity = StartActivity(DbSemanticConventions.ConnectOperation, null);
-        var startTimestamp = Stopwatch.GetTimestamp();
-        var hadError = false;
-        try
-        {
-            await _inner.OpenAsync(cancellationToken).ConfigureAwait(false);
-        }
-        catch (Exception ex)
-        {
-            hadError = true;
-            SetActivityError(activity, ex);
-            throw;
-        }
-        finally
-        {
-            RecordDuration(startTimestamp, DbSemanticConventions.ConnectOperation, null, hadError);
-        }
-    }
+    public override Task OpenAsync(CancellationToken cancellationToken) =>
+        ExecuteInstrumentedAsync("connect", null, () => _inner.OpenAsync(cancellationToken));
 
     /// <inheritdoc/>
     protected override DbTransaction BeginDbTransaction(IsolationLevel isolationLevel) =>
@@ -115,7 +90,7 @@ public sealed class TelemetryDbConnection : DbConnection
     {
         if (disposing)
         {
-            _inner.StateChange -= OnInnerStateChange;
+            _inner.StateChange -= _stateChangeHandler;
             _inner.Dispose();
         }
 
@@ -126,7 +101,7 @@ public sealed class TelemetryDbConnection : DbConnection
 
     internal Activity? StartActivity(string operationName, string? dbStatement)
     {
-        if (!_factory.Options.EmitTraces)
+        if (!_options.EmitTraces)
         {
             return null;
         }
@@ -140,7 +115,6 @@ public sealed class TelemetryDbConnection : DbConnection
             return null;
         }
 
-        activity.SetTag(DbSemanticConventions.DbSystem, GetDbSystem());
         activity.SetTag(DbSemanticConventions.DbName, Database);
         activity.SetTag(DbSemanticConventions.DbOperation, operationName);
 
@@ -149,13 +123,26 @@ public sealed class TelemetryDbConnection : DbConnection
             activity.SetTag(DbSemanticConventions.DbStatement, dbStatement);
         }
 
-        _factory.Options.EnrichActivity?.Invoke(activity, _inner);
+        try
+        {
+            _options.EnrichActivity?.Invoke(activity, _inner);
+        }
+#pragma warning disable CA1031 // Catching Exception is intentional: user callbacks must never break the operation
+        catch (Exception ex)
+#pragma warning restore CA1031
+        {
+            if (_logger is not null)
+            {
+                _logEnrichActivityError(_logger, ex);
+            }
+        }
+
         return activity;
     }
 
     internal void RecordDuration(long startTimestamp, string operationName, string? dbStatement, bool hadError)
     {
-        if (!_factory.Options.EmitMetrics)
+        if (!_options.EmitMetrics)
         {
             return;
         }
@@ -163,7 +150,6 @@ public sealed class TelemetryDbConnection : DbConnection
         var duration = Stopwatch.GetElapsedTime(startTimestamp).TotalSeconds;
         var tags = new List<KeyValuePair<string, object?>>
         {
-            new(DbSemanticConventions.DbSystem, GetDbSystem()),
             new(DbSemanticConventions.DbName, Database),
             new(DbSemanticConventions.DbOperation, operationName),
         };
@@ -178,7 +164,19 @@ public sealed class TelemetryDbConnection : DbConnection
             tags.Add(new(DbSemanticConventions.ErrorType, "exception"));
         }
 
-        _factory.Options.EnrichMetrics?.Invoke(tags, _inner);
+        try
+        {
+            _options.EnrichMetrics?.Invoke(tags, _inner);
+        }
+#pragma warning disable CA1031 // Catching Exception is intentional: user callbacks must never break the operation
+        catch (Exception ex)
+#pragma warning restore CA1031
+        {
+            if (_logger is not null)
+            {
+                _logEnrichMetricsError(_logger, ex);
+            }
+        }
 
         var tagList = new TagList();
         foreach (var tag in tags)
@@ -200,20 +198,89 @@ public sealed class TelemetryDbConnection : DbConnection
         activity.SetTag(DbSemanticConventions.ErrorType, ex.GetType().FullName);
     }
 
-    // ── Private helpers ──────────────────────────────────────────────────────
+    // ── DRY execution wrappers ───────────────────────────────────────────────
 
-    private void OnInnerStateChange(object sender, StateChangeEventArgs e) => OnStateChange(e);
-
-    private string GetDbSystem()
+    internal void ExecuteInstrumented(string operation, string? statement, Action action)
     {
-        var typeName = _inner.GetType().Name;
-        return typeName switch
+        using var activity = StartActivity(operation, statement);
+        var start = Stopwatch.GetTimestamp();
+        var hadError = false;
+        try
         {
-            var t when t.Contains("Sqlite", StringComparison.OrdinalIgnoreCase) => "sqlite",
-            var t when t.Contains("MySql", StringComparison.OrdinalIgnoreCase) => "mysql",
-            var t when t.Contains("Npgsql", StringComparison.OrdinalIgnoreCase) || t.Contains("Postgres", StringComparison.OrdinalIgnoreCase) => "postgresql",
-            var t when t.Contains("SqlClient", StringComparison.OrdinalIgnoreCase) || t.Contains("Mssql", StringComparison.OrdinalIgnoreCase) || t.Contains("SqlServer", StringComparison.OrdinalIgnoreCase) => "mssql",
-            _ => "other_sql",
-        };
+            action();
+        }
+        catch (Exception ex)
+        {
+            hadError = true;
+            SetActivityError(activity, ex);
+            throw;
+        }
+        finally
+        {
+            RecordDuration(start, operation, statement, hadError);
+        }
+    }
+
+    internal T ExecuteInstrumented<T>(string operation, string? statement, Func<T> action)
+    {
+        using var activity = StartActivity(operation, statement);
+        var start = Stopwatch.GetTimestamp();
+        var hadError = false;
+        try
+        {
+            return action();
+        }
+        catch (Exception ex)
+        {
+            hadError = true;
+            SetActivityError(activity, ex);
+            throw;
+        }
+        finally
+        {
+            RecordDuration(start, operation, statement, hadError);
+        }
+    }
+
+    internal async Task ExecuteInstrumentedAsync(string operation, string? statement, Func<Task> action)
+    {
+        using var activity = StartActivity(operation, statement);
+        var start = Stopwatch.GetTimestamp();
+        var hadError = false;
+        try
+        {
+            await action().ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            hadError = true;
+            SetActivityError(activity, ex);
+            throw;
+        }
+        finally
+        {
+            RecordDuration(start, operation, statement, hadError);
+        }
+    }
+
+    internal async Task<T> ExecuteInstrumentedAsync<T>(string operation, string? statement, Func<Task<T>> action)
+    {
+        using var activity = StartActivity(operation, statement);
+        var start = Stopwatch.GetTimestamp();
+        var hadError = false;
+        try
+        {
+            return await action().ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            hadError = true;
+            SetActivityError(activity, ex);
+            throw;
+        }
+        finally
+        {
+            RecordDuration(start, operation, statement, hadError);
+        }
     }
 }
