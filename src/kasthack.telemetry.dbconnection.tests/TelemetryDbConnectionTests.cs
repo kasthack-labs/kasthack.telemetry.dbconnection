@@ -143,6 +143,10 @@ public sealed class TelemetryDbConnectionTests
             { "savepoint",             c => { using var tx = c.BeginTransaction(); tx.Save("sp1"); tx.Rollback(); } },
             { "rollback_to_savepoint", c => { using var tx = c.BeginTransaction(); tx.Save("sp1"); tx.Rollback("sp1"); tx.Rollback(); } },
             { "release_savepoint",     c => { using var tx = c.BeginTransaction(); tx.Save("sp1"); tx.Release("sp1"); tx.Rollback(); } },
+            { "change_database", c => c.ChangeDatabase("MockDb") },
+            { "get_schema",      c => c.GetSchema() },
+            { "begin_transaction", c => { using var tx = c.BeginTransaction(); tx.Rollback(); } },
+            { "batch",           c => { using var b = c.CreateBatch(); b.ExecuteNonQuery(); } },
         };
 
     [Theory]
@@ -170,6 +174,10 @@ public sealed class TelemetryDbConnectionTests
             { "prepare",  async c => { await using var cmd = c.CreateCommand(); cmd.CommandText = "SELECT 1"; await cmd.PrepareAsync(); } },
             { "commit",   async c => { await using var tx = await c.BeginTransactionAsync(); await tx.CommitAsync(); } },
             { "rollback", async c => { await using var tx = await c.BeginTransactionAsync(); await tx.RollbackAsync(); } },
+            { "change_database", async c => await c.ChangeDatabaseAsync("MockDb") },
+            { "get_schema",      async c => await c.GetSchemaAsync() },
+            { "begin_transaction", async c => { await using var tx = await c.BeginTransactionAsync(); await tx.RollbackAsync(); } },
+            { "batch",           async c => { await using var b = c.CreateBatch(); await b.ExecuteNonQueryAsync(); } },
         };
 
     [Theory]
@@ -338,6 +346,46 @@ public sealed class TelemetryDbConnectionTests
 
         var activity = Assert.Single(activities);
         Assert.Equal("SELECT 1", activity.GetTagItem("db.statement"));
+    }
+
+    [Fact]
+    public void Close_WhenTrackConnectionManagementAll_EmitsActivity()
+    {
+        var activities = new List<Activity>();
+        using var listener = CreateActivityListener(activities);
+        ActivitySource.AddActivityListener(listener);
+
+        var mock = new MockDbConnection();
+        using var conn = CreateConnection(mock, new TelemetryDbConnectionOptions
+        {
+            EmitTraces = true,
+            EmitMetrics = false,
+            TrackConnectionManagement = ConnectionManagementTracking.All,
+        });
+        conn.Open();
+        conn.Close();
+
+        Assert.Contains(activities, a => a.DisplayName == "connect");
+        Assert.Contains(activities, a => a.DisplayName == "close");
+    }
+
+    [Fact]
+    public void Open_WhenTrackConnectionManagementNone_DoesNotEmitActivity()
+    {
+        var activities = new List<Activity>();
+        using var listener = CreateActivityListener(activities);
+        ActivitySource.AddActivityListener(listener);
+
+        var mock = new MockDbConnection();
+        using var conn = CreateConnection(mock, new TelemetryDbConnectionOptions
+        {
+            EmitTraces = true,
+            EmitMetrics = false,
+            TrackConnectionManagement = ConnectionManagementTracking.None,
+        });
+        conn.Open();
+
+        Assert.Empty(activities);
     }
 }
 

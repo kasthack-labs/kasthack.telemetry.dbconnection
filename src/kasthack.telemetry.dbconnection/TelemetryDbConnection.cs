@@ -62,26 +62,69 @@ public sealed class TelemetryDbConnection : DbConnection
     public override ConnectionState State => _inner.State;
 
     /// <inheritdoc/>
-    public override void ChangeDatabase(string databaseName) => _inner.ChangeDatabase(databaseName);
+    public override void ChangeDatabase(string databaseName) =>
+        ExecuteInstrumented("change_database", () => _inner.ChangeDatabase(databaseName));
 
     /// <inheritdoc/>
-    public override void Close() => _inner.Close();
+    public override Task ChangeDatabaseAsync(string databaseName, CancellationToken cancellationToken = default) =>
+        ExecuteInstrumentedAsync("change_database", () => _inner.ChangeDatabaseAsync(databaseName, cancellationToken));
 
     /// <inheritdoc/>
-    public override void Open() => ExecuteInstrumented("connect", _inner.Open);
+    public override void Close()
+    {
+        if (_options.TrackConnectionManagement.HasFlag(ConnectionManagementTracking.Close))
+        {
+            ExecuteInstrumented("close", _inner.Close);
+        }
+        else
+        {
+            _inner.Close();
+        }
+    }
 
     /// <inheritdoc/>
-    public override Task OpenAsync(CancellationToken cancellationToken) =>
-        ExecuteInstrumentedAsync("connect", () => _inner.OpenAsync(cancellationToken));
+    public override Task CloseAsync()
+    {
+        if (_options.TrackConnectionManagement.HasFlag(ConnectionManagementTracking.Close))
+        {
+            return ExecuteInstrumentedAsync("close", _inner.CloseAsync);
+        }
+        return _inner.CloseAsync();
+    }
+
+    /// <inheritdoc/>
+    public override void Open()
+    {
+        if (_options.TrackConnectionManagement.HasFlag(ConnectionManagementTracking.Open))
+        {
+            ExecuteInstrumented("connect", _inner.Open);
+        }
+        else
+        {
+            _inner.Open();
+        }
+    }
+
+    /// <inheritdoc/>
+    public override Task OpenAsync(CancellationToken cancellationToken)
+    {
+        if (_options.TrackConnectionManagement.HasFlag(ConnectionManagementTracking.Open))
+        {
+            return ExecuteInstrumentedAsync("connect", () => _inner.OpenAsync(cancellationToken));
+        }
+        return _inner.OpenAsync(cancellationToken);
+    }
 
     /// <inheritdoc/>
     protected override DbTransaction BeginDbTransaction(IsolationLevel isolationLevel) =>
-        new TelemetryDbTransaction(_inner.BeginTransaction(isolationLevel), this);
+        new TelemetryDbTransaction(
+            ExecuteInstrumented<DbTransaction>("begin_transaction", () => _inner.BeginTransaction(isolationLevel)),
+            this);
 
     /// <inheritdoc/>
     protected override async ValueTask<DbTransaction> BeginDbTransactionAsync(IsolationLevel isolationLevel, CancellationToken cancellationToken) =>
         new TelemetryDbTransaction(
-            await _inner.BeginTransactionAsync(isolationLevel, cancellationToken).ConfigureAwait(false),
+            await ExecuteInstrumentedAsync<DbTransaction>("begin_transaction", async () => await _inner.BeginTransactionAsync(isolationLevel, cancellationToken).ConfigureAwait(false)).ConfigureAwait(false),
             this);
 
     /// <inheritdoc/>
@@ -90,6 +133,37 @@ public sealed class TelemetryDbConnection : DbConnection
         var cmd = _inner.CreateCommand();
         return new TelemetryDbCommand(cmd, this);
     }
+
+    /// <inheritdoc/>
+    protected override DbBatch CreateDbBatch()
+    {
+        var batch = _inner.CreateBatch();
+        return new TelemetryDbBatch(batch, this);
+    }
+
+    /// <inheritdoc/>
+    public override DataTable GetSchema() =>
+        ExecuteInstrumented<DataTable>("get_schema", _inner.GetSchema);
+
+    /// <inheritdoc/>
+    public override DataTable GetSchema(string collectionName) =>
+        ExecuteInstrumented<DataTable>("get_schema", () => _inner.GetSchema(collectionName));
+
+    /// <inheritdoc/>
+    public override DataTable GetSchema(string collectionName, string?[] restrictionValues) =>
+        ExecuteInstrumented<DataTable>("get_schema", () => _inner.GetSchema(collectionName, restrictionValues));
+
+    /// <inheritdoc/>
+    public override Task<DataTable> GetSchemaAsync(CancellationToken cancellationToken = default) =>
+        ExecuteInstrumentedAsync<DataTable>("get_schema", () => _inner.GetSchemaAsync(cancellationToken));
+
+    /// <inheritdoc/>
+    public override Task<DataTable> GetSchemaAsync(string collectionName, CancellationToken cancellationToken = default) =>
+        ExecuteInstrumentedAsync<DataTable>("get_schema", () => _inner.GetSchemaAsync(collectionName, cancellationToken));
+
+    /// <inheritdoc/>
+    public override Task<DataTable> GetSchemaAsync(string collectionName, string?[] restrictionValues, CancellationToken cancellationToken = default) =>
+        ExecuteInstrumentedAsync<DataTable>("get_schema", () => _inner.GetSchemaAsync(collectionName, restrictionValues, cancellationToken));
 
     /// <inheritdoc/>
     protected override void Dispose(bool disposing)
@@ -123,6 +197,11 @@ public sealed class TelemetryDbConnection : DbConnection
 
         activity.SetTag(DbSemanticConventions.DbName, Database);
         activity.SetTag(DbSemanticConventions.DbOperation, operationName);
+
+        if (!string.IsNullOrEmpty(DataSource))
+        {
+            activity.SetTag(DbSemanticConventions.ServerAddress, DataSource);
+        }
 
         if (dbStatement is not null && _options.CaptureStatements)
         {
@@ -159,6 +238,11 @@ public sealed class TelemetryDbConnection : DbConnection
             new(DbSemanticConventions.DbName, Database),
             new(DbSemanticConventions.DbOperation, operationName),
         };
+
+        if (!string.IsNullOrEmpty(DataSource))
+        {
+            tags.Add(new(DbSemanticConventions.ServerAddress, DataSource));
+        }
 
         if (dbStatement is not null && _options.CaptureStatements)
         {
@@ -281,6 +365,40 @@ public sealed class TelemetryDbConnection : DbConnection
         {
             SetActivityError(activity, ex);
             RecordDuration(startTimestamp, operationName, dbStatement, command, hadError: true);
+            activity?.Dispose();
+            throw;
+        }
+    }
+
+    internal DbDataReader ExecuteInstrumentedReader(string operationName, Func<DbDataReader> execute)
+    {
+        var activity = StartActivity(operationName, null, null);
+        var startTimestamp = Stopwatch.GetTimestamp();
+        try
+        {
+            return new TelemetryDbDataReader(execute(), this, activity, startTimestamp, operationName, null);
+        }
+        catch (Exception ex)
+        {
+            SetActivityError(activity, ex);
+            RecordDuration(startTimestamp, operationName, null, null, hadError: true);
+            activity?.Dispose();
+            throw;
+        }
+    }
+
+    internal async Task<DbDataReader> ExecuteInstrumentedReaderAsync(string operationName, Func<Task<DbDataReader>> execute)
+    {
+        var activity = StartActivity(operationName, null, null);
+        var startTimestamp = Stopwatch.GetTimestamp();
+        try
+        {
+            return new TelemetryDbDataReader(await execute().ConfigureAwait(false), this, activity, startTimestamp, operationName, null);
+        }
+        catch (Exception ex)
+        {
+            SetActivityError(activity, ex);
+            RecordDuration(startTimestamp, operationName, null, null, hadError: true);
             activity?.Dispose();
             throw;
         }

@@ -7,4 +7,5 @@ internal static class DbSemanticConventions
     internal const string DbStatement = "db.statement";
     internal const string DbOperation = "db.operation";
     internal const string ErrorType = "error.type";
+    internal const string ServerAddress = "server.address";
 }

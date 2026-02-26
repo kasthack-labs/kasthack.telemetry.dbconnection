@@ -47,13 +47,19 @@ internal sealed class MockDbConnection : DbConnection
     }
 
     public override void ChangeDatabase(string databaseName) =>
-        throw new NotSupportedException();
+        Thread.Sleep(CommandDelay);
 
     protected override DbTransaction BeginDbTransaction(IsolationLevel isolationLevel) =>
         new MockDbTransaction(this, isolationLevel);
 
     protected override DbCommand CreateDbCommand() =>
         new MockDbCommand(this);
+
+    protected override DbBatch CreateDbBatch() => new MockDbBatch(this);
+
+    public override DataTable GetSchema() => new DataTable();
+    public override DataTable GetSchema(string collectionName) => new DataTable();
+    public override DataTable GetSchema(string collectionName, string?[] restrictionValues) => new DataTable();
 }
 
 internal sealed class MockDbCommand : DbCommand
@@ -224,8 +230,7 @@ internal sealed class MockDbTransaction : DbTransaction
         Task.Delay(_connection.CommandDelay, cancellationToken);
 }
 
-internal sealed class MockDbParameterCollection : DbParameterCollection
-{
+internal sealed class MockDbParameterCollection : DbParameterCollection{
     private readonly List<DbParameter> _items = new();
 
     public override int Count => _items.Count;
@@ -315,4 +320,85 @@ internal sealed class MockDbParameterCollection : DbParameterCollection
 
     protected override void SetParameter(string parameterName, DbParameter value) =>
         _items[IndexOf(parameterName)] = value;
+}
+
+internal sealed class MockDbBatch : DbBatch
+{
+    private readonly MockDbConnection _connection;
+
+    public MockDbBatch(MockDbConnection connection) => _connection = connection;
+
+    public override int Timeout { get; set; } = 30;
+    protected override DbBatchCommandCollection DbBatchCommands => new MockDbBatchCommandCollection();
+    protected override DbConnection? DbConnection { get => _connection; set { } }
+    protected override DbTransaction? DbTransaction { get; set; }
+
+    public override void Cancel() => Thread.Sleep(_connection.CommandDelay);
+
+    public override int ExecuteNonQuery()
+    {
+        Thread.Sleep(_connection.CommandDelay);
+        return 0;
+    }
+
+    public override async Task<int> ExecuteNonQueryAsync(CancellationToken cancellationToken = default)
+    {
+        await Task.Delay(_connection.CommandDelay, cancellationToken).ConfigureAwait(false);
+        return 0;
+    }
+
+    public override object? ExecuteScalar()
+    {
+        Thread.Sleep(_connection.CommandDelay);
+        return null;
+    }
+
+    public override async Task<object?> ExecuteScalarAsync(CancellationToken cancellationToken = default)
+    {
+        await Task.Delay(_connection.CommandDelay, cancellationToken).ConfigureAwait(false);
+        return null;
+    }
+
+    protected override DbDataReader ExecuteDbDataReader(CommandBehavior behavior)
+    {
+        Thread.Sleep(_connection.CommandDelay);
+        return new MockDbDataReader();
+    }
+
+    protected override async Task<DbDataReader> ExecuteDbDataReaderAsync(CommandBehavior behavior, CancellationToken cancellationToken)
+    {
+        await Task.Delay(_connection.CommandDelay, cancellationToken).ConfigureAwait(false);
+        return new MockDbDataReader();
+    }
+
+    public override void Prepare() => Thread.Sleep(_connection.CommandDelay);
+    public override Task PrepareAsync(CancellationToken cancellationToken = default) => Task.Delay(_connection.CommandDelay, cancellationToken);
+
+    protected override DbBatchCommand CreateDbBatchCommand() => new MockDbBatchCommand();
+}
+
+internal sealed class MockDbBatchCommand : DbBatchCommand
+{
+    public override string CommandText { get; set; } = string.Empty;
+    public override CommandType CommandType { get; set; } = CommandType.Text;
+    public override int RecordsAffected => 0;
+    protected override DbParameterCollection DbParameterCollection => new MockDbParameterCollection();
+}
+
+internal sealed class MockDbBatchCommandCollection : DbBatchCommandCollection
+{
+    private readonly List<DbBatchCommand> _items = new();
+    public override int Count => _items.Count;
+    public override bool IsReadOnly => false;
+    public override void Add(DbBatchCommand item) => _items.Add(item);
+    public override int IndexOf(DbBatchCommand item) => _items.IndexOf(item);
+    public override void Insert(int index, DbBatchCommand item) => _items.Insert(index, item);
+    public override void RemoveAt(int index) => _items.RemoveAt(index);
+    public override void Clear() => _items.Clear();
+    public override bool Contains(DbBatchCommand item) => _items.Contains(item);
+    public override void CopyTo(DbBatchCommand[] array, int arrayIndex) => _items.CopyTo(array, arrayIndex);
+    public override bool Remove(DbBatchCommand item) => _items.Remove(item);
+    public override IEnumerator<DbBatchCommand> GetEnumerator() => _items.GetEnumerator();
+    protected override DbBatchCommand GetBatchCommand(int index) => _items[index];
+    protected override void SetBatchCommand(int index, DbBatchCommand batchCommand) => _items[index] = batchCommand;
 }

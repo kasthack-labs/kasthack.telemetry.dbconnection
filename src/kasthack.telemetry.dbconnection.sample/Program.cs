@@ -144,45 +144,48 @@ using (var ctx = new SampleDbContext(efOptions))
 Console.WriteLine();
 Console.WriteLine("=== 3. DI / IOptions ===");
 
-var services = new ServiceCollection();
+// Named in-memory DB so the keepalive connection and scoped connections share state.
+const string DiConnectionString = "Data Source=di_sample;Mode=Memory;Cache=Shared";
+using var diKeepAlive = new SqliteConnection(DiConnectionString);
+await diKeepAlive.OpenAsync();
 
-// Wire up the console logger so enrichment errors are visible.
+var services = new ServiceCollection();
 services.AddLogging(b => b.AddConsole().SetMinimumLevel(LogLevel.Warning));
 
-// Register TelemetryDbConnectionFactory driven by IOptions<TelemetryDbConnectionOptions>.
-services.AddTelemetryDbConnection(options =>
-{
-    options.EmitTraces = true;
-    options.EmitMetrics = true;
-    options.EnrichActivity = (activity, cmd) =>
-        activity.SetTag("sample.section", "di");
-});
+// Option B: register a scoped DbConnection (auto-wrapped with telemetry).
+// Inject DbConnection directly — it is already wrapped.
+services.AddTelemetryDbConnection(
+    connectionFactory: _ => new SqliteConnection(DiConnectionString),
+    configure: options =>
+    {
+        options.EmitTraces = true;
+        options.EmitMetrics = true;
+        options.EnrichActivity = (activity, cmd) =>
+            activity.SetTag("sample.section", "di");
+    });
 
 using var sp = services.BuildServiceProvider();
-var diFactory = sp.GetRequiredService<TelemetryDbConnectionFactory>();
+using var scope = sp.CreateScope();
+var diConn = scope.ServiceProvider.GetRequiredService<System.Data.Common.DbConnection>();
+await diConn.OpenAsync();
 
-using (var conn = diFactory.Wrap(new SqliteConnection(ConnectionString)))
+using (var cmd = diConn.CreateCommand())
 {
-    await conn.OpenAsync();
+    cmd.CommandText = "CREATE TABLE IF NOT EXISTS items (id INTEGER PRIMARY KEY, label TEXT)";
+    await cmd.ExecuteNonQueryAsync();
+}
 
-    using (var cmd = conn.CreateCommand())
-    {
-        cmd.CommandText = "CREATE TABLE items (id INTEGER PRIMARY KEY, label TEXT)";
-        await cmd.ExecuteNonQueryAsync();
-    }
+using (var cmd = diConn.CreateCommand())
+{
+    cmd.CommandText = "INSERT INTO items VALUES (1, 'hello'), (2, 'world')";
+    await cmd.ExecuteNonQueryAsync();
+}
 
-    using (var cmd = conn.CreateCommand())
-    {
-        cmd.CommandText = "INSERT INTO items VALUES (1, 'hello'), (2, 'world')";
-        await cmd.ExecuteNonQueryAsync();
-    }
-
-    using (var cmd = conn.CreateCommand())
-    {
-        cmd.CommandText = "SELECT COUNT(*) FROM items";
-        var count = await cmd.ExecuteScalarAsync();
-        Console.WriteLine($"  Item count: {count}");
-    }
+using (var cmd = diConn.CreateCommand())
+{
+    cmd.CommandText = "SELECT COUNT(*) FROM items";
+    var count = await cmd.ExecuteScalarAsync();
+    Console.WriteLine($"  Item count: {count}");
 }
 
 Console.WriteLine();
