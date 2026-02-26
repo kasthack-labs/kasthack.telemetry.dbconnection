@@ -248,6 +248,44 @@ public sealed class TelemetryDbConnection : DbConnection
     internal Task<T> ExecuteInstrumentedAsync<T>(string operationName, Func<Task<T>> action) =>
         ExecuteInstrumentedAsyncCore<T>(operationName, null, null, action);
 
+    internal DbDataReader ExecuteInstrumentedReader(DbCommand command, Func<DbDataReader> execute)
+    {
+        var operationName = GetOperationName(command);
+        var dbStatement = command.CommandText;
+        var activity = StartActivity(operationName, dbStatement, command);
+        var startTimestamp = Stopwatch.GetTimestamp();
+        try
+        {
+            return new TelemetryDbDataReader(execute(), this, activity, startTimestamp, operationName, dbStatement);
+        }
+        catch (Exception ex)
+        {
+            SetActivityError(activity, ex);
+            RecordDuration(startTimestamp, operationName, dbStatement, command, hadError: true);
+            activity?.Dispose();
+            throw;
+        }
+    }
+
+    internal async Task<DbDataReader> ExecuteInstrumentedReaderAsync(DbCommand command, Func<Task<DbDataReader>> execute)
+    {
+        var operationName = GetOperationName(command);
+        var dbStatement = command.CommandText;
+        var activity = StartActivity(operationName, dbStatement, command);
+        var startTimestamp = Stopwatch.GetTimestamp();
+        try
+        {
+            return new TelemetryDbDataReader(await execute().ConfigureAwait(false), this, activity, startTimestamp, operationName, dbStatement);
+        }
+        catch (Exception ex)
+        {
+            SetActivityError(activity, ex);
+            RecordDuration(startTimestamp, operationName, dbStatement, command, hadError: true);
+            activity?.Dispose();
+            throw;
+        }
+    }
+
     private T ExecuteInstrumentedCore<T>(string operationName, string? statement, DbCommand? command, Func<T> action)
     {
         using var activity = StartActivity(operationName, statement, command);

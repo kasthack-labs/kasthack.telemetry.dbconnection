@@ -1,6 +1,5 @@
 using System.Data;
 using System.Data.Common;
-using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 
 #pragma warning disable CA2100 // CommandText is a pass-through; SQL review is the caller's responsibility
@@ -83,10 +82,14 @@ public sealed class TelemetryDbCommand : DbCommand
     }
 
     /// <inheritdoc/>
-    public override void Cancel() => _inner.Cancel();
+    public override void Cancel() => _connection.ExecuteInstrumented("cancel", _inner.Cancel);
 
     /// <inheritdoc/>
-    public override void Prepare() => _inner.Prepare();
+    public override void Prepare() => _connection.ExecuteInstrumented("prepare", _inner.Prepare);
+
+    /// <inheritdoc/>
+    public override Task PrepareAsync(CancellationToken cancellationToken = default) =>
+        _connection.ExecuteInstrumentedAsync("prepare", () => _inner.PrepareAsync(cancellationToken));
 
     /// <inheritdoc/>
     protected override DbParameter CreateDbParameter() => _inner.CreateParameter();
@@ -102,27 +105,8 @@ public sealed class TelemetryDbCommand : DbCommand
         _connection.ExecuteInstrumented<object?>(_inner, _inner.ExecuteScalar);
 
     /// <inheritdoc/>
-    protected override DbDataReader ExecuteDbDataReader(CommandBehavior behavior)
-    {
-        var operationName = TelemetryDbConnection.GetOperationName(_inner);
-        var dbStatement = _inner.CommandText;
-
-        // The activity lifetime is handed off to the reader; do NOT use 'using' here.
-        var activity = _connection.StartActivity(operationName, dbStatement, _inner);
-        var startTimestamp = Stopwatch.GetTimestamp();
-        try
-        {
-            var reader = _inner.ExecuteReader(behavior);
-            return new TelemetryDbDataReader(reader, _connection, activity, startTimestamp, operationName, dbStatement);
-        }
-        catch (Exception ex)
-        {
-            TelemetryDbConnection.SetActivityError(activity, ex);
-            _connection.RecordDuration(startTimestamp, operationName, dbStatement, _inner, hadError: true);
-            activity?.Dispose();
-            throw;
-        }
-    }
+    protected override DbDataReader ExecuteDbDataReader(CommandBehavior behavior) =>
+        _connection.ExecuteInstrumentedReader(_inner, () => _inner.ExecuteReader(behavior));
 
     // ── Asynchronous execute ─────────────────────────────────────────────────
 
@@ -135,27 +119,8 @@ public sealed class TelemetryDbCommand : DbCommand
         _connection.ExecuteInstrumentedAsync<object?>(_inner, () => _inner.ExecuteScalarAsync(cancellationToken));
 
     /// <inheritdoc/>
-    protected override async Task<DbDataReader> ExecuteDbDataReaderAsync(CommandBehavior behavior, CancellationToken cancellationToken)
-    {
-        var operationName = TelemetryDbConnection.GetOperationName(_inner);
-        var dbStatement = _inner.CommandText;
-
-        // The activity lifetime is handed off to the reader; do NOT use 'using' here.
-        var activity = _connection.StartActivity(operationName, dbStatement, _inner);
-        var startTimestamp = Stopwatch.GetTimestamp();
-        try
-        {
-            var reader = await _inner.ExecuteReaderAsync(behavior, cancellationToken).ConfigureAwait(false);
-            return new TelemetryDbDataReader(reader, _connection, activity, startTimestamp, operationName, dbStatement);
-        }
-        catch (Exception ex)
-        {
-            TelemetryDbConnection.SetActivityError(activity, ex);
-            _connection.RecordDuration(startTimestamp, operationName, dbStatement, _inner, hadError: true);
-            activity?.Dispose();
-            throw;
-        }
-    }
+    protected override Task<DbDataReader> ExecuteDbDataReaderAsync(CommandBehavior behavior, CancellationToken cancellationToken) =>
+        _connection.ExecuteInstrumentedReaderAsync(_inner, () => _inner.ExecuteReaderAsync(behavior, cancellationToken));
 
     /// <inheritdoc/>
     protected override void Dispose(bool disposing)

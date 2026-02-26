@@ -16,7 +16,7 @@ A set of .NET NuGet packages that wrap any `DbConnection` with OpenTelemetry-com
 
 ## Why does this exist?
 
-- **Uniformity across drivers** — a single instrumentation layer works identically with SQLite, SQL Server, PostgreSQL, MySQL, or any other ADO.NET provider, without per-driver plugins.
+- **Uniformity across drivers** — a single instrumentation layer works identically with SQLite, SQL Server, PostgreSQL, MySQL, or any other ADO.NET provider, without per-driver plugins; driver-specific built-in tracing (e.g., SqlClient) provides traces but **no metrics**.
 - **.NET Framework / netstandard support** — targets `netstandard2.0` so it works in legacy .NET Framework applications as well as modern .NET.
 - **Transaction instrumentation** — `Commit`, `Rollback`, `Save`/`Release` savepoints are all measured and traced, not just query execution.
 - **Correct reader timing** — the span for `ExecuteReader` stays open until the `DbDataReader` is disposed, capturing the full time spent reading rows; built-in SqlClient tracing closes the span at execute time and misses reader duration.
@@ -32,7 +32,7 @@ A set of .NET NuGet packages that wrap any `DbConnection` with OpenTelemetry-com
 ## What is instrumented
 
 - **Connection open** (`Open` / `OpenAsync`) — separate named operation `connect`
-- **Command execution** (`ExecuteNonQuery`, `ExecuteScalar`, `ExecuteReader` — sync and async) — operation name derived from the first SQL keyword (e.g. `SELECT`, `INSERT`)
+- **Command execution** (`ExecuteNonQuery`, `ExecuteScalar`, `ExecuteReader`, `Prepare`, `Cancel` — sync and async) — operation name derived from the first SQL keyword (e.g. `SELECT`, `INSERT`); `Prepare` uses `prepare`, `Cancel` uses `cancel`
 - **Reader lifetime** — for `ExecuteReader`, the span stays open until the `DbDataReader` is disposed
 - **Transaction operations** (`Commit`, `Rollback`, `Save`/`Rollback`/`Release` savepoints — sync and async) — each produces its own span and metric
 - Each execution of a reused command produces its own span and metric

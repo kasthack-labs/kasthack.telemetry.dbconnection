@@ -11,6 +11,12 @@ namespace kasthack.telemetry.dbconnection;
 /// </summary>
 internal sealed class TelemetryDbTransaction : DbTransaction
 {
+    private const string CommitOperation = "commit";
+    private const string RollbackOperation = "rollback";
+    private const string SavepointOperation = "savepoint";
+    private const string RollbackToSavepointOperation = "rollback_to_savepoint";
+    private const string ReleaseSavepointOperation = "release_savepoint";
+
     private readonly DbTransaction _inner;
     private readonly TelemetryDbConnection _connection;
     private bool _disposed;
@@ -37,45 +43,45 @@ internal sealed class TelemetryDbTransaction : DbTransaction
 
     /// <inheritdoc/>
     public override void Commit() =>
-        _connection.ExecuteInstrumented("commit", _inner.Commit);
+        _connection.ExecuteInstrumented(CommitOperation, _inner.Commit);
 
     /// <inheritdoc/>
     public override Task CommitAsync(CancellationToken cancellationToken = default) =>
-        _connection.ExecuteInstrumentedAsync("commit", () => _inner.CommitAsync(cancellationToken));
+        _connection.ExecuteInstrumentedAsync(CommitOperation, () => _inner.CommitAsync(cancellationToken));
 
     /// <inheritdoc/>
     public override void Rollback() =>
-        _connection.ExecuteInstrumented("rollback", _inner.Rollback);
+        _connection.ExecuteInstrumented(RollbackOperation, _inner.Rollback);
 
     /// <inheritdoc/>
     public override Task RollbackAsync(CancellationToken cancellationToken = default) =>
-        _connection.ExecuteInstrumentedAsync("rollback", () => _inner.RollbackAsync(cancellationToken));
+        _connection.ExecuteInstrumentedAsync(RollbackOperation, () => _inner.RollbackAsync(cancellationToken));
 
     // ── Savepoints ───────────────────────────────────────────────────────────
 
     /// <inheritdoc/>
     public override void Save(string savepointName) =>
-        _connection.ExecuteInstrumented("savepoint", () => _inner.Save(savepointName));
+        _connection.ExecuteInstrumented(SavepointOperation, () => _inner.Save(savepointName));
 
     /// <inheritdoc/>
     public override Task SaveAsync(string savepointName, CancellationToken cancellationToken = default) =>
-        _connection.ExecuteInstrumentedAsync("savepoint", () => _inner.SaveAsync(savepointName, cancellationToken));
+        _connection.ExecuteInstrumentedAsync(SavepointOperation, () => _inner.SaveAsync(savepointName, cancellationToken));
 
     /// <inheritdoc/>
     public override void Rollback(string savepointName) =>
-        _connection.ExecuteInstrumented("rollback_to_savepoint", () => _inner.Rollback(savepointName));
+        _connection.ExecuteInstrumented(RollbackToSavepointOperation, () => _inner.Rollback(savepointName));
 
     /// <inheritdoc/>
     public override Task RollbackAsync(string savepointName, CancellationToken cancellationToken = default) =>
-        _connection.ExecuteInstrumentedAsync("rollback_to_savepoint", () => _inner.RollbackAsync(savepointName, cancellationToken));
+        _connection.ExecuteInstrumentedAsync(RollbackToSavepointOperation, () => _inner.RollbackAsync(savepointName, cancellationToken));
 
     /// <inheritdoc/>
     public override void Release(string savepointName) =>
-        _connection.ExecuteInstrumented("release_savepoint", () => _inner.Release(savepointName));
+        _connection.ExecuteInstrumented(ReleaseSavepointOperation, () => _inner.Release(savepointName));
 
     /// <inheritdoc/>
     public override Task ReleaseAsync(string savepointName, CancellationToken cancellationToken = default) =>
-        _connection.ExecuteInstrumentedAsync("release_savepoint", () => _inner.ReleaseAsync(savepointName, cancellationToken));
+        _connection.ExecuteInstrumentedAsync(ReleaseSavepointOperation, () => _inner.ReleaseAsync(savepointName, cancellationToken));
 
     // ── Disposal ─────────────────────────────────────────────────────────────
 
