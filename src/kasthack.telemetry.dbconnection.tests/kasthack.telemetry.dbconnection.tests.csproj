@@ -8,6 +8,7 @@
   <ItemGroup>
     <ProjectReference Include="..\kasthack.telemetry.dbconnection\kasthack.telemetry.dbconnection.csproj" />
     <ProjectReference Include="..\kasthack.telemetry.dbconnection.ef\kasthack.telemetry.dbconnection.ef.csproj" />
+    <ProjectReference Include="..\kasthack.telemetry.dbconnection.di\kasthack.telemetry.dbconnection.di.csproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="xunit" />
@@ -17,5 +18,6 @@
     </PackageReference>
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
   </ItemGroup>
 </Project>

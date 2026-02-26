@@ -105,7 +105,7 @@ optionsBuilder.AddInterceptors(new TelemetryDbConnectionInterceptor(
 
 ### Dependency Injection / IOptions
 
-The DI package registers `TelemetryDbConnectionFactory` as a singleton, resolves options from `IOptions<TelemetryDbConnectionOptions>`, and automatically wires up an `ILogger<TelemetryDbConnectionFactory>` if one is available.
+The DI package registers `TelemetryDbConnectionFactory` as a singleton, resolves options from `IOptionsMonitor<TelemetryDbConnectionOptions>`, and automatically wires up an `ILogger<TelemetryDbConnectionFactory>` if one is available.
 
 **Option A — inject the factory and wrap connections manually:**
 
@@ -132,9 +132,9 @@ public class MyRepository(TelemetryDbConnectionFactory factory)
 }
 ```
 
-**Option B — register a scoped `DbConnection` directly:**
+**Option B — register a `DbConnection` directly:**
 
-Pass a connection factory delegate to get a scoped `DbConnection` (already wrapped with telemetry) injected automatically:
+Pass a connection factory delegate to get a `DbConnection` (already wrapped with telemetry) injected automatically. Use the `connectionLifetime` parameter to control the service lifetime (defaults to `Scoped`):
 
 ```csharp
 using kasthack.telemetry.dbconnection.di;
@@ -146,18 +146,33 @@ builder.Services.AddTelemetryDbConnection(
         options.EmitTraces  = true;
         options.EmitMetrics = true;
     });
+// connectionLifetime defaults to ServiceLifetime.Scoped
 
 // Inject DbConnection directly — it is already wrapped with telemetry:
-public class MyRepository(DbConnection conn)
-{
-    public async Task<int> CountAsync()
-    {
-        await conn.OpenAsync();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT COUNT(*) FROM MyTable";
-        return (int)(await cmd.ExecuteScalarAsync())!;
-    }
-}
+public class MyRepository(DbConnection conn) { ... }
+```
+
+**Option C — keyed services (multiple databases):**
+
+Use the `serviceKey` overloads when you need multiple named database registrations in the same container. Keyed factories and connections are independent — each has its own `TelemetryDbConnectionOptions`.
+
+```csharp
+using kasthack.telemetry.dbconnection.di;
+
+// Register two databases under different keys:
+builder.Services.AddTelemetryDbConnection(
+    serviceKey: "users-db",
+    connectionFactory: _ => new SqliteConnection("Data Source=users.db"),
+    configure: options => { options.EmitTraces = true; options.EmitMetrics = true; });
+
+builder.Services.AddTelemetryDbConnection(
+    serviceKey: "orders-db",
+    connectionFactory: _ => new SqliteConnection("Data Source=orders.db"),
+    configure: options => { options.EmitTraces = true; options.CaptureStatements = true; });
+
+// Inject by key using [FromKeyedServices]:
+public class UsersRepository([FromKeyedServices("users-db")] DbConnection conn) { ... }
+public class OrdersRepository([FromKeyedServices("orders-db")] DbConnection conn) { ... }
 ```
 
 Options can also be configured via the standard `IOptions` pipeline (e.g. `appsettings.json`, environment variables) after calling `AddTelemetryDbConnection`.
