@@ -107,22 +107,51 @@ optionsBuilder.AddInterceptors(new TelemetryDbConnectionInterceptor(
 
 The DI package registers `TelemetryDbConnectionFactory` as a singleton, resolves options from `IOptions<TelemetryDbConnectionOptions>`, and automatically wires up an `ILogger<TelemetryDbConnectionFactory>` if one is available.
 
+**Option A — inject the factory and wrap connections manually:**
+
 ```csharp
 using kasthack.telemetry.dbconnection.di;
 
-// In Program.cs / Startup.cs:
 builder.Services.AddTelemetryDbConnection(options =>
 {
     options.EmitTraces  = true;
     options.EmitMetrics = true;
 });
 
-// Later, inject TelemetryDbConnectionFactory where needed:
+// Inject TelemetryDbConnectionFactory and call Wrap() where needed:
 public class MyRepository(TelemetryDbConnectionFactory factory)
 {
     public async Task<int> CountAsync()
     {
         using var conn = factory.Wrap(new SqliteConnection("Data Source=:memory:"));
+        await conn.OpenAsync();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT COUNT(*) FROM MyTable";
+        return (int)(await cmd.ExecuteScalarAsync())!;
+    }
+}
+```
+
+**Option B — register a scoped `DbConnection` directly:**
+
+Pass a connection factory delegate to get a scoped `DbConnection` (already wrapped with telemetry) injected automatically:
+
+```csharp
+using kasthack.telemetry.dbconnection.di;
+
+builder.Services.AddTelemetryDbConnection(
+    connectionFactory: _ => new SqliteConnection("Data Source=app.db"),
+    configure: options =>
+    {
+        options.EmitTraces  = true;
+        options.EmitMetrics = true;
+    });
+
+// Inject DbConnection directly — it is already wrapped with telemetry:
+public class MyRepository(DbConnection conn)
+{
+    public async Task<int> CountAsync()
+    {
         await conn.OpenAsync();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT COUNT(*) FROM MyTable";

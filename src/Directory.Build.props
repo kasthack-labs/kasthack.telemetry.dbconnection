@@ -35,7 +35,7 @@
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
     <IsPackable>true</IsPackable>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageLicenseExpression>AGPL-3.0-or-later</PackageLicenseExpression>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
 
     <!-- Package validation: https://learn.microsoft.com/en-us/dotnet/fundamentals/package-validation/overview -->
     <EnablePackageValidation>true</EnablePackageValidation>
