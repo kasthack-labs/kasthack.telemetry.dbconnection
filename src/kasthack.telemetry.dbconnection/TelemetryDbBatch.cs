@@ -13,6 +13,7 @@ public sealed class TelemetryDbBatch : DbBatch
 {
     private const string BatchOperation = "batch";
     private const string PrepareOperation = "prepare";
+    private const string CancelOperation = "cancel";
 
     private readonly DbBatch _inner;
     private readonly TelemetryDbConnection _connection;
@@ -48,7 +49,7 @@ public sealed class TelemetryDbBatch : DbBatch
     }
 
     /// <inheritdoc/>
-    public override void Cancel() => _inner.Cancel();
+    public override void Cancel() => _connection.ExecuteInstrumented(CancelOperation, _inner.Cancel);
 
     /// <inheritdoc/>
     public override int ExecuteNonQuery() =>

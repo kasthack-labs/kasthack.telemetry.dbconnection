@@ -161,7 +161,7 @@ public sealed class TelemetryDbDataReader : DbDataReader
     /// <inheritdoc/>
     protected override void Dispose(bool disposing)
     {
-        if (disposing && !_disposed)
+        if (disposing)
         {
             FinishMeasurement();
             _inner.Dispose();
@@ -173,17 +173,19 @@ public sealed class TelemetryDbDataReader : DbDataReader
     /// <inheritdoc/>
     public override async ValueTask DisposeAsync()
     {
-        if (!_disposed)
-        {
-            FinishMeasurement();
-            await _inner.DisposeAsync().ConfigureAwait(false);
-        }
+        FinishMeasurement();
+        await _inner.DisposeAsync().ConfigureAwait(false);
 
         await base.DisposeAsync().ConfigureAwait(false);
     }
 
     private void FinishMeasurement()
     {
+        if (_disposed)
+        {
+            return;
+        }
+
         _disposed = true;
         _connection.RecordDuration(_startTimestamp, _operation, _dbStatement, null, hadError: false);
         _activity?.Dispose();

@@ -13,6 +13,9 @@ namespace kasthack.telemetry.dbconnection;
 /// </summary>
 public sealed class TelemetryDbCommand : DbCommand
 {
+    private const string CancelOperation = "cancel";
+    private const string PrepareOperation = "prepare";
+
     private readonly DbCommand _inner;
     private readonly TelemetryDbConnection _connection;
 
@@ -82,14 +85,14 @@ public sealed class TelemetryDbCommand : DbCommand
     }
 
     /// <inheritdoc/>
-    public override void Cancel() => _connection.ExecuteInstrumented("cancel", _inner.Cancel);
+    public override void Cancel() => _connection.ExecuteInstrumented(CancelOperation, _inner.Cancel);
 
     /// <inheritdoc/>
-    public override void Prepare() => _connection.ExecuteInstrumented("prepare", _inner.Prepare);
+    public override void Prepare() => _connection.ExecuteInstrumented(PrepareOperation, _inner.Prepare);
 
     /// <inheritdoc/>
     public override Task PrepareAsync(CancellationToken cancellationToken = default) =>
-        _connection.ExecuteInstrumentedAsync("prepare", () => _inner.PrepareAsync(cancellationToken));
+        _connection.ExecuteInstrumentedAsync(PrepareOperation, () => _inner.PrepareAsync(cancellationToken));
 
     /// <inheritdoc/>
     protected override DbParameter CreateDbParameter() => _inner.CreateParameter();

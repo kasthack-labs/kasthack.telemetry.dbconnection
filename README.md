@@ -54,6 +54,8 @@ A set of .NET NuGet packages that wrap any `DbConnection` with OpenTelemetry-com
 
 ## Usage
 
+See [`src/kasthack.telemetry.dbconnection.sample`](src/kasthack.telemetry.dbconnection.sample) for a runnable end-to-end example covering all three packages.
+
 ### Core (plain ADO.NET)
 
 ```csharp
@@ -107,7 +109,27 @@ optionsBuilder.AddInterceptors(new TelemetryDbConnectionInterceptor(
 
 The DI package registers `TelemetryDbConnectionFactory` as a singleton, resolves options from `IOptionsMonitor<TelemetryDbConnectionOptions>`, and automatically wires up an `ILogger<TelemetryDbConnectionFactory>` if one is available.
 
-**Option A — inject the factory and wrap connections manually:**
+**Option A — register a `DbConnection` directly:**
+
+Pass a connection factory delegate to get a `DbConnection` (already wrapped with telemetry) injected automatically. Use the `connectionLifetime` parameter to control the service lifetime (defaults to `Scoped`):
+
+```csharp
+using kasthack.telemetry.dbconnection.di;
+
+builder.Services.AddTelemetryDbConnection(
+    connectionFactory: _ => new SqliteConnection("Data Source=app.db"),
+    configure: options =>
+    {
+        options.EmitTraces  = true;
+        options.EmitMetrics = true;
+    });
+// connectionLifetime defaults to ServiceLifetime.Scoped
+
+// Inject DbConnection directly — it is already wrapped with telemetry:
+public class MyRepository(DbConnection conn) { ... }
+```
+
+**Option B — inject the factory and wrap connections manually:**
 
 ```csharp
 using kasthack.telemetry.dbconnection.di;
@@ -130,26 +152,6 @@ public class MyRepository(TelemetryDbConnectionFactory factory)
         return (int)(await cmd.ExecuteScalarAsync())!;
     }
 }
-```
-
-**Option B — register a `DbConnection` directly:**
-
-Pass a connection factory delegate to get a `DbConnection` (already wrapped with telemetry) injected automatically. Use the `connectionLifetime` parameter to control the service lifetime (defaults to `Scoped`):
-
-```csharp
-using kasthack.telemetry.dbconnection.di;
-
-builder.Services.AddTelemetryDbConnection(
-    connectionFactory: _ => new SqliteConnection("Data Source=app.db"),
-    configure: options =>
-    {
-        options.EmitTraces  = true;
-        options.EmitMetrics = true;
-    });
-// connectionLifetime defaults to ServiceLifetime.Scoped
-
-// Inject DbConnection directly — it is already wrapped with telemetry:
-public class MyRepository(DbConnection conn) { ... }
 ```
 
 **Option C — keyed services (multiple databases):**
