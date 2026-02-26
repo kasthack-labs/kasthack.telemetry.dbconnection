@@ -121,6 +121,27 @@ internal sealed class MockDbCommand : DbCommand
         return new MockDbDataReader();
     }
 
+    public override async Task<int> ExecuteNonQueryAsync(CancellationToken cancellationToken = default)
+    {
+        await Task.Delay(_connection.CommandDelay, cancellationToken).ConfigureAwait(false);
+        _connection.ExecutedCommandTexts.Add(CommandText);
+        return 0;
+    }
+
+    public override async Task<object?> ExecuteScalarAsync(CancellationToken cancellationToken = default)
+    {
+        await Task.Delay(_connection.CommandDelay, cancellationToken).ConfigureAwait(false);
+        _connection.ExecutedCommandTexts.Add(CommandText);
+        return null;
+    }
+
+    protected override async Task<DbDataReader> ExecuteDbDataReaderAsync(CommandBehavior behavior, CancellationToken cancellationToken)
+    {
+        await Task.Delay(_connection.CommandDelay, cancellationToken).ConfigureAwait(false);
+        _connection.ExecutedCommandTexts.Add(CommandText);
+        return new MockDbDataReader();
+    }
+
     protected override DbParameter CreateDbParameter() =>
         throw new NotSupportedException();
 }
@@ -183,6 +204,23 @@ internal sealed class MockDbTransaction : DbTransaction
         Thread.Sleep(_connection.CommandDelay);
 
     public override Task RollbackAsync(CancellationToken cancellationToken = default) =>
+        Task.Delay(_connection.CommandDelay, cancellationToken);
+
+    public override bool SupportsSavepoints => true;
+
+    public override void Save(string savepointName) => Thread.Sleep(_connection.CommandDelay);
+
+    public override Task SaveAsync(string savepointName, CancellationToken cancellationToken = default) =>
+        Task.Delay(_connection.CommandDelay, cancellationToken);
+
+    public override void Rollback(string savepointName) => Thread.Sleep(_connection.CommandDelay);
+
+    public override Task RollbackAsync(string savepointName, CancellationToken cancellationToken = default) =>
+        Task.Delay(_connection.CommandDelay, cancellationToken);
+
+    public override void Release(string savepointName) => Thread.Sleep(_connection.CommandDelay);
+
+    public override Task ReleaseAsync(string savepointName, CancellationToken cancellationToken = default) =>
         Task.Delay(_connection.CommandDelay, cancellationToken);
 }
 

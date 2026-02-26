@@ -49,38 +49,6 @@ public sealed class TelemetryDbConnectionTests
     }
 
     [Fact]
-    public void EmitTraces_True_CreatesActivityForOpen()
-    {
-        var activities = new List<Activity>();
-        using var listener = CreateActivityListener(activities);
-        ActivitySource.AddActivityListener(listener);
-
-        var mock = new MockDbConnection();
-        using var conn = CreateConnection(mock, new TelemetryDbConnectionOptions { EmitTraces = true, EmitMetrics = false });
-        conn.Open();
-
-        var activity = Assert.Single(activities);
-        Assert.Equal("connect", activity.DisplayName);
-    }
-
-    [Fact]
-    public void EmitTraces_True_CreatesActivityForExecuteNonQuery()
-    {
-        var activities = new List<Activity>();
-        using var listener = CreateActivityListener(activities);
-        ActivitySource.AddActivityListener(listener);
-
-        var mock = new MockDbConnection();
-        using var conn = CreateConnection(mock, new TelemetryDbConnectionOptions { EmitTraces = true, EmitMetrics = false });
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = "UPDATE foo SET x=1";
-        cmd.ExecuteNonQuery();
-
-        var activity = Assert.Single(activities);
-        Assert.Equal("UPDATE", activity.DisplayName);
-    }
-
-    [Fact]
     public void EmitMetrics_False_DoesNotRecordDuration()
     {
         var measurements = new List<double>();
@@ -106,18 +74,117 @@ public sealed class TelemetryDbConnectionTests
         Assert.Single(measurements);
     }
 
-    [Fact]
-    public void EmitMetrics_True_DurationAtLeastAsLongAsDelay()
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(10)]
+    [InlineData(50)]
+    public void EmitMetrics_DurationMatchesActualTime(int delayMs)
     {
         var measurements = new List<double>();
         using var meterListener = CreateMeterListener(measurements);
 
-        var mock = new MockDbConnection { CommandDelay = TimeSpan.FromMilliseconds(50) };
+        var mock = new MockDbConnection { CommandDelay = TimeSpan.FromMilliseconds(delayMs) };
         using var conn = CreateConnection(mock, new TelemetryDbConnectionOptions { EmitTraces = false, EmitMetrics = true });
-        conn.Open();
 
-        var duration = Assert.Single(measurements);
-        Assert.True(duration >= 0.045, $"Expected duration >= 0.045s but was {duration}s");
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        conn.Open();
+        sw.Stop();
+
+        var recorded = Assert.Single(measurements);
+        var actualSeconds = sw.Elapsed.TotalSeconds;
+        var expectedSeconds = delayMs / 1000.0;
+
+        Assert.True(recorded >= expectedSeconds - 0.001,
+            $"Recorded {recorded}s should be >= expected {expectedSeconds}s");
+        Assert.True(Math.Abs(recorded - actualSeconds) < 0.1,
+            $"Difference between recorded {recorded:F4}s and actual {actualSeconds:F4}s exceeds 100ms tolerance");
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(10)]
+    [InlineData(50)]
+    public async Task EmitMetrics_DurationMatchesActualTime_Async(int delayMs)
+    {
+        var measurements = new List<double>();
+        using var meterListener = CreateMeterListener(measurements);
+
+        var mock = new MockDbConnection { CommandDelay = TimeSpan.FromMilliseconds(delayMs) };
+        using var conn = CreateConnection(mock, new TelemetryDbConnectionOptions { EmitTraces = false, EmitMetrics = true });
+
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        await conn.OpenAsync();
+        sw.Stop();
+
+        var recorded = Assert.Single(measurements);
+        var actualSeconds = sw.Elapsed.TotalSeconds;
+        var expectedSeconds = delayMs / 1000.0;
+
+        Assert.True(recorded >= expectedSeconds - 0.001,
+            $"Recorded {recorded}s should be >= expected {expectedSeconds}s");
+        Assert.True(Math.Abs(recorded - actualSeconds) < 0.1,
+            $"Difference between recorded {recorded:F4}s and actual {actualSeconds:F4}s exceeds 100ms tolerance");
+    }
+
+    public static TheoryData<string, Action<TelemetryDbConnection>> SyncOperations =>
+        new()
+        {
+            { "connect",  c => c.Open() },
+            { "SELECT",   c => { using var cmd = c.CreateCommand(); cmd.CommandText = "SELECT 1"; cmd.ExecuteNonQuery(); } },
+            { "INSERT",   c => { using var cmd = c.CreateCommand(); cmd.CommandText = "INSERT INTO t VALUES(1)"; cmd.ExecuteNonQuery(); } },
+            { "SELECT",   c => { using var cmd = c.CreateCommand(); cmd.CommandText = "SELECT 1"; cmd.ExecuteScalar(); } },
+            { "SELECT",   c => { using var cmd = c.CreateCommand(); cmd.CommandText = "SELECT 1"; using var r = cmd.ExecuteReader(); } },
+            { "prepare",  c => { using var cmd = c.CreateCommand(); cmd.CommandText = "SELECT 1"; cmd.Prepare(); } },
+            { "cancel",   c => { using var cmd = c.CreateCommand(); cmd.CommandText = "SELECT 1"; cmd.Cancel(); } },
+            { "commit",   c => { using var tx = c.BeginTransaction(); tx.Commit(); } },
+            { "rollback", c => { using var tx = c.BeginTransaction(); tx.Rollback(); } },
+            { "savepoint",             c => { using var tx = c.BeginTransaction(); tx.Save("sp1"); tx.Rollback(); } },
+            { "rollback_to_savepoint", c => { using var tx = c.BeginTransaction(); tx.Save("sp1"); tx.Rollback("sp1"); tx.Rollback(); } },
+            { "release_savepoint",     c => { using var tx = c.BeginTransaction(); tx.Save("sp1"); tx.Release("sp1"); tx.Rollback(); } },
+        };
+
+    [Theory]
+    [MemberData(nameof(SyncOperations))]
+    public void AllSyncOperations_EmitTraces_CreateActivity(string expectedOperation, Action<TelemetryDbConnection> runOperation)
+    {
+        var activities = new List<Activity>();
+        using var listener = CreateActivityListener(activities);
+        ActivitySource.AddActivityListener(listener);
+
+        var mock = new MockDbConnection();
+        using var conn = CreateConnection(mock, new TelemetryDbConnectionOptions { EmitTraces = true, EmitMetrics = false });
+        runOperation(conn);
+
+        Assert.Contains(activities, a => a.DisplayName == expectedOperation);
+    }
+
+    public static TheoryData<string, Func<TelemetryDbConnection, Task>> AsyncOperations =>
+        new()
+        {
+            { "connect",  async c => await c.OpenAsync() },
+            { "SELECT",   async c => { await using var cmd = c.CreateCommand(); cmd.CommandText = "SELECT 1"; await cmd.ExecuteNonQueryAsync(); } },
+            { "SELECT",   async c => { await using var cmd = c.CreateCommand(); cmd.CommandText = "SELECT 1"; await cmd.ExecuteScalarAsync(); } },
+            { "SELECT",   async c => { await using var cmd = c.CreateCommand(); cmd.CommandText = "SELECT 1"; await using var r = await cmd.ExecuteReaderAsync(); } },
+            { "prepare",  async c => { await using var cmd = c.CreateCommand(); cmd.CommandText = "SELECT 1"; await cmd.PrepareAsync(); } },
+            { "commit",   async c => { await using var tx = await c.BeginTransactionAsync(); await tx.CommitAsync(); } },
+            { "rollback", async c => { await using var tx = await c.BeginTransactionAsync(); await tx.RollbackAsync(); } },
+        };
+
+    [Theory]
+    [MemberData(nameof(AsyncOperations))]
+    public async Task AllAsyncOperations_EmitTraces_CreateActivity(string expectedOperation, Func<TelemetryDbConnection, Task> runOperation)
+    {
+        var activities = new List<Activity>();
+        using var listener = CreateActivityListener(activities);
+        ActivitySource.AddActivityListener(listener);
+
+        var mock = new MockDbConnection();
+        using var conn = CreateConnection(mock, new TelemetryDbConnectionOptions { EmitTraces = true, EmitMetrics = false });
+        await runOperation(conn);
+
+        Assert.Contains(activities, a => a.DisplayName == expectedOperation);
     }
 
     [Fact]
@@ -273,3 +340,4 @@ public sealed class TelemetryDbConnectionTests
         Assert.Equal("SELECT 1", activity.GetTagItem("db.statement"));
     }
 }
+
