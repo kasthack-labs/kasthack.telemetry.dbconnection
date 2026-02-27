@@ -1,7 +1,7 @@
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
 
-namespace kasthack.telemetry.dbconnection;
+namespace kasthack.telemetry.dbconnection.Options;
 
 /// <summary>
 /// Provides the <see cref="System.Diagnostics.ActivitySource"/> and <see cref="System.Diagnostics.Metrics.Meter"/>

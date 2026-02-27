@@ -1,6 +1,11 @@
+using System.Data;
 using System.Data.Common;
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
+
+using kasthack.telemetry.dbconnection.Decorators;
+using kasthack.telemetry.dbconnection.Options;
+
 using Xunit;
 
 namespace kasthack.telemetry.dbconnection.tests;
@@ -305,7 +310,7 @@ public sealed class TelemetryDbConnectionTests
     }
 
     [Fact]
-    public void CaptureStatements_False_DoesNotTagStatement()
+    public void CaptureStatements_None_DoesNotTagStatement()
     {
         var activities = new List<Activity>();
         using var listener = CreateActivityListener(activities);
@@ -316,7 +321,7 @@ public sealed class TelemetryDbConnectionTests
         {
             EmitTraces = true,
             EmitMetrics = false,
-            CaptureStatements = false,
+            CaptureStatements = CaptureStatements.None,
         });
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT 1";
@@ -327,7 +332,7 @@ public sealed class TelemetryDbConnectionTests
     }
 
     [Fact]
-    public void CaptureStatements_True_TagsStatement()
+    public void CaptureStatements_All_TagsStatement()
     {
         var activities = new List<Activity>();
         using var listener = CreateActivityListener(activities);
@@ -338,7 +343,7 @@ public sealed class TelemetryDbConnectionTests
         {
             EmitTraces = true,
             EmitMetrics = false,
-            CaptureStatements = true,
+            CaptureStatements = CaptureStatements.All,
         });
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT 1";
@@ -346,6 +351,96 @@ public sealed class TelemetryDbConnectionTests
 
         var activity = Assert.Single(activities);
         Assert.Equal("SELECT 1", activity.GetTagItem("db.statement"));
+    }
+
+    [Fact]
+    public void CaptureStatements_StoredProcedures_TagsStoredProcedureStatement()
+    {
+        var activities = new List<Activity>();
+        using var listener = CreateActivityListener(activities);
+        ActivitySource.AddActivityListener(listener);
+
+        var mock = new MockDbConnection();
+        using var conn = CreateConnection(mock, new TelemetryDbConnectionOptions
+        {
+            EmitTraces = true,
+            EmitMetrics = false,
+            CaptureStatements = CaptureStatements.StoredProcedures,
+        });
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "dbo.GetUser";
+        cmd.CommandType = CommandType.StoredProcedure;
+        cmd.ExecuteNonQuery();
+
+        var activity = Assert.Single(activities);
+        Assert.Equal("dbo.GetUser", activity.GetTagItem("db.statement"));
+    }
+
+    [Fact]
+    public void CaptureStatements_StoredProcedures_DoesNotTagTextStatement()
+    {
+        var activities = new List<Activity>();
+        using var listener = CreateActivityListener(activities);
+        ActivitySource.AddActivityListener(listener);
+
+        var mock = new MockDbConnection();
+        using var conn = CreateConnection(mock, new TelemetryDbConnectionOptions
+        {
+            EmitTraces = true,
+            EmitMetrics = false,
+            CaptureStatements = CaptureStatements.StoredProcedures,
+        });
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT 1";
+        cmd.ExecuteNonQuery();
+
+        var activity = Assert.Single(activities);
+        Assert.Null(activity.GetTagItem("db.statement"));
+    }
+
+    [Fact]
+    public void CaptureStatements_Text_TagsTextStatement()
+    {
+        var activities = new List<Activity>();
+        using var listener = CreateActivityListener(activities);
+        ActivitySource.AddActivityListener(listener);
+
+        var mock = new MockDbConnection();
+        using var conn = CreateConnection(mock, new TelemetryDbConnectionOptions
+        {
+            EmitTraces = true,
+            EmitMetrics = false,
+            CaptureStatements = CaptureStatements.Text,
+        });
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT 1";
+        cmd.ExecuteNonQuery();
+
+        var activity = Assert.Single(activities);
+        Assert.Equal("SELECT 1", activity.GetTagItem("db.statement"));
+    }
+
+    [Fact]
+    public void CaptureStatements_Text_DoesNotTagStoredProcedureStatement()
+    {
+        var activities = new List<Activity>();
+        using var listener = CreateActivityListener(activities);
+        ActivitySource.AddActivityListener(listener);
+
+        var mock = new MockDbConnection();
+        using var conn = CreateConnection(mock, new TelemetryDbConnectionOptions
+        {
+            EmitTraces = true,
+            EmitMetrics = false,
+            CaptureStatements = CaptureStatements.Text,
+        });
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "dbo.GetUser";
+        cmd.CommandType = CommandType.StoredProcedure;
+        cmd.ExecuteNonQuery();
+
+        var activity = Assert.Single(activities);
+        Assert.Null(activity.GetTagItem("db.statement"));
     }
 
     [Fact]

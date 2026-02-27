@@ -5,7 +5,7 @@ using System.Diagnostics;
 
 #pragma warning disable CA1010 // DbDataReader itself does not implement IEnumerable<T>
 
-namespace kasthack.telemetry.dbconnection;
+namespace kasthack.telemetry.dbconnection.Decorators;
 
 /// <summary>
 /// A <see cref="DbDataReader"/> decorator that measures the time between the <c>ExecuteReader</c> call

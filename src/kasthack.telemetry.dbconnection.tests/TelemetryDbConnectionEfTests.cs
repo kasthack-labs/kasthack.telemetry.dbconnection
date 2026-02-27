@@ -1,5 +1,7 @@
 using System.Diagnostics;
 using kasthack.telemetry.dbconnection.ef;
+using kasthack.telemetry.dbconnection.Options;
+
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Xunit;

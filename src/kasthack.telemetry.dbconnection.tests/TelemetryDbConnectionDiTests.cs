@@ -1,7 +1,11 @@
-using kasthack.telemetry.dbconnection;
+using kasthack.telemetry.dbconnection.Decorators;
 using kasthack.telemetry.dbconnection.di;
+using kasthack.telemetry.dbconnection.Options;
+
 using Microsoft.Extensions.DependencyInjection;
+
 using System.Data.Common;
+
 using Xunit;
 
 namespace kasthack.telemetry.dbconnection.tests;
@@ -27,7 +31,7 @@ public sealed class TelemetryDbConnectionDiTests
     public void AddTelemetryDbConnection_Configure_AppliesOptions()
     {
         var services = new ServiceCollection();
-        services.AddTelemetryDbConnection(o => o.CaptureStatements = true);
+        services.AddTelemetryDbConnection(o => o.CaptureStatements = CaptureStatements.All);
 
         using var sp = services.BuildServiceProvider();
         // Smoke-test: factory resolves and works (options are read at factory creation time)

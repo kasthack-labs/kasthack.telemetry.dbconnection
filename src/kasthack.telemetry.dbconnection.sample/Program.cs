@@ -14,6 +14,7 @@
 using kasthack.telemetry.dbconnection;
 using kasthack.telemetry.dbconnection.di;
 using kasthack.telemetry.dbconnection.ef;
+using kasthack.telemetry.dbconnection.Options;
 using kasthack.telemetry.dbconnection.sample;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
@@ -48,7 +49,7 @@ var factory = new TelemetryDbConnectionFactory(new TelemetryDbConnectionOptions
 {
     EmitTraces = true,
     EmitMetrics = true,
-    CaptureStatements = true,
+    CaptureStatements = CaptureStatements.All,
     // Enrich every span with a custom tag.
     EnrichActivity = (activity, cmd) =>
         activity.SetTag("sample.section", "core"),

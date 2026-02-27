@@ -1,7 +1,7 @@
 using System.Data;
 using System.Data.Common;
 
-namespace kasthack.telemetry.dbconnection;
+namespace kasthack.telemetry.dbconnection.Decorators;
 
 /// <summary>
 /// A <see cref="DbTransaction"/> decorator that reports its connection as the owning

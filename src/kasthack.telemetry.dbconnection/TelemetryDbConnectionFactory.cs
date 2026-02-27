@@ -1,4 +1,8 @@
 using System.Data.Common;
+
+using kasthack.telemetry.dbconnection.Decorators;
+using kasthack.telemetry.dbconnection.Options;
+
 using Microsoft.Extensions.Logging;
 
 namespace kasthack.telemetry.dbconnection;

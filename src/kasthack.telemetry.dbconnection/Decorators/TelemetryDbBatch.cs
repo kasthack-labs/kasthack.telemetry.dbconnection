@@ -3,7 +3,7 @@ using System.Data.Common;
 
 #pragma warning disable CA2100 // CommandText is a pass-through; SQL review is the caller's responsibility
 
-namespace kasthack.telemetry.dbconnection;
+namespace kasthack.telemetry.dbconnection.Decorators;
 
 /// <summary>
 /// A <see cref="DbBatch"/> decorator that measures the execution time of every batch operation and

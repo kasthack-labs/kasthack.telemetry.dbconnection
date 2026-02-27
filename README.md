@@ -16,10 +16,14 @@ A set of .NET NuGet packages that wrap any `DbConnection` with OpenTelemetry-com
 
 ## Why does this exist?
 
-- **Uniformity across drivers** — a single instrumentation layer works identically with SQLite, SQL Server, PostgreSQL, MySQL, or any other ADO.NET provider, without per-driver plugins; driver-specific built-in tracing (e.g., SqlClient) provides traces but **no metrics**.
-- **.NET Framework / netstandard support** — targets `netstandard2.0` so it works in legacy .NET Framework applications as well as modern .NET.
-- **Transaction instrumentation** — `Commit`, `Rollback`, `Save`/`Release` savepoints are all measured and traced, not just query execution.
+While some ADO.net drivers has telemetry support, kasthack.telemetry.dbconnection has
+
+- **Metrics support.** Most drivers don't do that.
 - **Correct reader timing** — the span for `ExecuteReader` stays open until the `DbDataReader` is disposed, capturing the full time spent reading rows; built-in SqlClient tracing closes the span at execute time and misses reader duration.
+- **Transaction instrumentation** — `Commit`, `Rollback`, `Save`/`Release` savepoints are all measured and traced, not just query execution.
+- **Connection overhead instrumentation** - opening connections gets tracked.
+- **Uniformity across drivers** — a single instrumentation layer works identically with SQLite, SQL Server, PostgreSQL, MySQL, or any other ADO.NET provider, without per-driver plugins;
+- **.NET Framework / netstandard support** — targets `netstandard2.0` so it works in legacy .NET Framework applications as well as modern .NET.
 
 ### Packages
 
@@ -56,27 +60,49 @@ A set of .NET NuGet packages that wrap any `DbConnection` with OpenTelemetry-com
 
 See [`src/kasthack.telemetry.dbconnection.sample`](src/kasthack.telemetry.dbconnection.sample) for a runnable end-to-end example covering all three packages.
 
-### Core (plain ADO.NET)
+### Factory configuration
 
 ```csharp
-using kasthack.telemetry.dbconnection;
-
-var factory = new TelemetryDbConnectionFactory(new TelemetryDbConnectionOptions
+new TelemetryDbConnectionOptions
 {
+    // enables tracing. Enabled by default
     EmitTraces  = true,
-    EmitMetrics = true,
-    // optionally enrich every activity with custom tags:
-    EnrichActivity = (activity, conn) => activity.SetTag("app.tenant", tenantId),
-    // optionally enrich every metric measurement with extra tags:
-    EnrichMetrics  = (tags, conn) => tags.Add(new("app.tenant", tenantId)),
-});
 
-// Wrap a raw DbConnection — works with any ADO.NET provider
-using var connection = factory.Wrap(new SqliteConnection("Data Source=:memory:"));
-await connection.OpenAsync();
+    // enables metrics. Enabled by default
+    EmitMetrics = true,
+
+    /*
+        statement capture options
+            - None              = don't include statements in logs and traces
+                                    Use this when you do custom enrichment
+            - StoredProcedures  = include stored procedure texts
+            - Text              = include ad hoc queries
+            - All               = include everything
+    */
+    CaptureStatements = CaptureStatements.StoredProcedures,
+
+    /*
+        Connection management tracking
+            - Open              = Enabled by default. Should be close to 0 when connection pooling is enabled
+            - Close             = Generally not needed, but tracked anyway
+            - All               = 
+
+    */
+    ConnectionManagementTracking = ConnectionManagementTracking.Open,
+
+    /*
+        Activity enrichment with DbCommand
+    */
+    EnrichActivity = (activity, command) => activity.SetTag("app.tenant", tenantId),
+    
+    
+    /*
+        Metric tag enrichment with DbCommand
+    */
+    EnrichMetrics  = (tags, conn) => tags.Add(new("app.tenant", tenantId)),
+}
 ```
 
-The `TelemetryDbConnection.InnerConnection` property exposes the underlying connection when needed.
 
 ### Register with OpenTelemetry SDK
 
@@ -88,71 +114,24 @@ tracerProviderBuilder.AddSource(TelemetryDbConnectionInstrumentation.ActivitySou
 meterProviderBuilder.AddMeter(TelemetryDbConnectionInstrumentation.MeterName);
 ```
 
----
-
-### Entity Framework Core
-
-The EF package intercepts `ConnectionCreated` to wrap the connection EF just built with a `TelemetryDbConnection`. All subsequent operations (open, commands, readers) are instrumented automatically.
+### Basic usage with DbConnecion
 
 ```csharp
-using kasthack.telemetry.dbconnection.ef;
+using kasthack.telemetry.dbconnection;
 
-// In DbContext configuration:
-optionsBuilder.AddInterceptors(new TelemetryDbConnectionInterceptor(
-    new TelemetryDbConnectionOptions { EmitTraces = true, EmitMetrics = true }
-));
+var factory = new TelemetryDbConnectionFactory(configuration);
+
+// Wrap a raw DbConnection — works with any ADO.NET provider
+using var connection = factory.Wrap(new SqliteConnection("Data Source=:memory:"));
+await connection.OpenAsync();
 ```
 
----
+The `TelemetryDbConnection.InnerConnection` property exposes the underlying connection when needed.
 
 ### Dependency Injection / IOptions
 
-The DI package registers `TelemetryDbConnectionFactory` as a singleton, resolves options from `IOptionsMonitor<TelemetryDbConnectionOptions>`, and automatically wires up an `ILogger<TelemetryDbConnectionFactory>` if one is available.
-
-**Option A — register a `DbConnection` directly:**
 
 Pass a connection factory delegate to get a `DbConnection` (already wrapped with telemetry) injected automatically. Use the `connectionLifetime` parameter to control the service lifetime (defaults to `Scoped`):
-
-```csharp
-using kasthack.telemetry.dbconnection.di;
-
-builder.Services.AddTelemetryDbConnection(
-    connectionFactory: _ => new SqliteConnection("Data Source=app.db"),
-    configure: options =>
-    {
-        options.EmitTraces  = true;
-        options.EmitMetrics = true;
-    });
-// connectionLifetime defaults to ServiceLifetime.Scoped
-
-// Inject DbConnection directly — it is already wrapped with telemetry:
-public class MyRepository(DbConnection conn) { ... }
-```
-
-**Option B — inject the factory and wrap connections manually:**
-
-```csharp
-using kasthack.telemetry.dbconnection.di;
-
-builder.Services.AddTelemetryDbConnection(options =>
-{
-    options.EmitTraces  = true;
-    options.EmitMetrics = true;
-});
-
-// Inject TelemetryDbConnectionFactory and call Wrap() where needed:
-public class MyRepository(TelemetryDbConnectionFactory factory)
-{
-    public async Task<int> CountAsync()
-    {
-        using var conn = factory.Wrap(new SqliteConnection("Data Source=:memory:"));
-        await conn.OpenAsync();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT COUNT(*) FROM MyTable";
-        return (int)(await cmd.ExecuteScalarAsync())!;
-    }
-}
-```
 
 **Option C — keyed services (multiple databases):**
 
@@ -178,6 +157,21 @@ public class OrdersRepository([FromKeyedServices("orders-db")] DbConnection conn
 ```
 
 Options can also be configured via the standard `IOptions` pipeline (e.g. `appsettings.json`, environment variables) after calling `AddTelemetryDbConnection`.
+
+
+### Entity Framework Core
+
+The EF package intercepts `ConnectionCreated` to wrap the connection EF just built with a `TelemetryDbConnection`. All subsequent operations (open, commands, readers) are instrumented automatically.
+
+```csharp
+using kasthack.telemetry.dbconnection.ef;
+
+// In DbContext configuration:
+optionsBuilder.AddInterceptors(new TelemetryDbConnectionInterceptor(
+    new TelemetryDbConnectionOptions { EmitTraces = true, EmitMetrics = true }
+));
+```
+
 
 ## Enrichment error handling
 

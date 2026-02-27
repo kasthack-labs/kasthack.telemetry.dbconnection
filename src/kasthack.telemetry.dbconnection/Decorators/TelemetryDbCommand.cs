@@ -4,7 +4,7 @@ using System.Diagnostics.CodeAnalysis;
 
 #pragma warning disable CA2100 // CommandText is a pass-through; SQL review is the caller's responsibility
 
-namespace kasthack.telemetry.dbconnection;
+namespace kasthack.telemetry.dbconnection.Decorators;
 
 /// <summary>
 /// A <see cref="DbCommand"/> decorator that measures the execution time of every command operation and

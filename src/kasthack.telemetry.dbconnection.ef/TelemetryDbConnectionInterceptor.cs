@@ -1,5 +1,8 @@
 using System.Data.Common;
-using kasthack.telemetry.dbconnection;
+
+using kasthack.telemetry.dbconnection.Decorators;
+using kasthack.telemetry.dbconnection.Options;
+
 using Microsoft.EntityFrameworkCore.Diagnostics;
 
 namespace kasthack.telemetry.dbconnection.ef;
