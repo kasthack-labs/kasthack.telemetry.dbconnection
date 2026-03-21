@@ -1,9 +1,11 @@
 using System.Diagnostics;
+
 using kasthack.telemetry.dbconnection.ef;
 using kasthack.telemetry.dbconnection.Options;
 
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+
 using Xunit;
 
 namespace kasthack.telemetry.dbconnection.tests;
@@ -44,56 +46,67 @@ public sealed class TelemetryDbConnectionEfTests : IDisposable
             .Options;
 
     [Fact]
-    public async Task BasicQuery_DoesNotThrow()
+    public async Task BasicQueryDoesNotThrow()
     {
         var options = CreateOptions(new TelemetryDbConnectionOptions { EmitTraces = true, EmitMetrics = true });
-        await using var ctx = new TestDbContext(options);
-        await ctx.Database.EnsureCreatedAsync();
+        var ctx = new TestDbContext(options);
+        await using (ctx.ConfigureAwait(true))
+        {
+            await ctx.Database.EnsureCreatedAsync().ConfigureAwait(true);
 
-        ctx.Items.Add(new TestEntity { Name = "test" });
-        await ctx.SaveChangesAsync();
+            ctx.Items.Add(new TestEntity { Name = "test" });
+            await ctx.SaveChangesAsync().ConfigureAwait(true);
 
-        var count = await ctx.Items.CountAsync();
-        Assert.Equal(1, count);
+            var count = await ctx.Items.CountAsync().ConfigureAwait(true);
+            Assert.Equal(1, count);
+        }
     }
 
     [Fact]
     public async Task Transaction_CommitWorks()
     {
         var options = CreateOptions(new TelemetryDbConnectionOptions { EmitTraces = true, EmitMetrics = true });
-        await using var ctx = new TestDbContext(options);
-        await ctx.Database.EnsureCreatedAsync();
+        var ctx = new TestDbContext(options);
+        await using (ctx.ConfigureAwait(true))
+        {
+            await ctx.Database.EnsureCreatedAsync().ConfigureAwait(true);
+            var tx = (await ctx.Database.BeginTransactionAsync().ConfigureAwait(true));
+            await using (tx.ConfigureAwait(true))
+            {
+                ctx.Items.Add(new TestEntity { Name = "tx-item" });
+                await ctx.SaveChangesAsync().ConfigureAwait(true);
+                await tx.CommitAsync().ConfigureAwait(true);
 
-        await using var tx = await ctx.Database.BeginTransactionAsync();
-        ctx.Items.Add(new TestEntity { Name = "tx-item" });
-        await ctx.SaveChangesAsync();
-        await tx.CommitAsync();
-
-        var count = await ctx.Items.CountAsync();
-        Assert.Equal(1, count);
+                var count = await ctx.Items.CountAsync().ConfigureAwait(true);
+                Assert.Equal(1, count);
+            }
+        }
     }
 
     [Fact]
-    public async Task Transaction_RollbackWorks()
+    public async Task TransactionRollbackWorks()
     {
         var options = CreateOptions(new TelemetryDbConnectionOptions { EmitTraces = true, EmitMetrics = true });
-        await using var ctx = new TestDbContext(options);
-        await ctx.Database.EnsureCreatedAsync();
-
-        await using (var tx = await ctx.Database.BeginTransactionAsync())
+        var ctx = new TestDbContext(options);
+        await using (ctx.ConfigureAwait(true))
         {
-            ctx.Items.Add(new TestEntity { Name = "rollback-item" });
-            await ctx.SaveChangesAsync();
-            await tx.RollbackAsync();
-        }
+            await ctx.Database.EnsureCreatedAsync().ConfigureAwait(true);
+            var tx = await ctx.Database.BeginTransactionAsync();
+            await using (tx.ConfigureAwait(true))
+            {
+                ctx.Items.Add(new TestEntity { Name = "rollback-item" });
+                await ctx.SaveChangesAsync().ConfigureAwait(true);
+                await tx.RollbackAsync().ConfigureAwait(true);
+            }
 
-        ctx.ChangeTracker.Clear();
-        var count = await ctx.Items.CountAsync();
-        Assert.Equal(0, count);
+            ctx.ChangeTracker.Clear();
+            var count = await ctx.Items.CountAsync().ConfigureAwait(true);
+            Assert.Equal(0, count);
+        }
     }
 
     [Fact]
-    public async Task BasicQuery_EmitsActivities_WhenTracesEnabled()
+    public async Task BasicQueryEmitsActivitiesWhenTracesEnabled()
     {
         var activities = new List<Activity>();
         using var listener = new ActivityListener
@@ -105,32 +118,38 @@ public sealed class TelemetryDbConnectionEfTests : IDisposable
         ActivitySource.AddActivityListener(listener);
 
         var options = CreateOptions(new TelemetryDbConnectionOptions { EmitTraces = true, EmitMetrics = false });
-        await using var ctx = new TestDbContext(options);
-        await ctx.Database.EnsureCreatedAsync();
-        await ctx.Items.CountAsync();
+        var ctx = new TestDbContext(options);
+        await using (ctx.ConfigureAwait(true))
+        {
+            await ctx.Database.EnsureCreatedAsync().ConfigureAwait(true);
+            await ctx.Items.CountAsync().ConfigureAwait(true);
 
-        Assert.NotEmpty(activities);
+            Assert.NotEmpty(activities);
+        }
     }
 
     [Fact]
-    public async Task BasicQuery_DoesNotEmitActivities_WhenTracesDisabled()
+    public async Task BasicQueryDoesNotEmitActivitiesWhenTracesDisabled()
     {
         var activities = new List<Activity>();
         var options = CreateOptions(new TelemetryDbConnectionOptions { EmitTraces = false, EmitMetrics = false });
-        await using var ctx = new TestDbContext(options);
-        await ctx.Database.EnsureCreatedAsync();
-
-        // Register listener AFTER setup to avoid capturing schema-creation activities from other tests.
-        using var listener = new ActivityListener
+        var ctx = new TestDbContext(options);
+        await using (ctx.ConfigureAwait(true))
         {
-            ShouldListenTo = source => source.Name == TelemetryDbConnectionInstrumentation.ActivitySourceName,
-            Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllDataAndRecorded,
-            ActivityStarted = activities.Add,
-        };
-        ActivitySource.AddActivityListener(listener);
+            await ctx.Database.EnsureCreatedAsync().ConfigureAwait(true);
 
-        await ctx.Items.CountAsync();
+            // Register listener AFTER setup to avoid capturing schema-creation activities from other tests.
+            using var listener = new ActivityListener
+            {
+                ShouldListenTo = source => source.Name == TelemetryDbConnectionInstrumentation.ActivitySourceName,
+                Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllDataAndRecorded,
+                ActivityStarted = activities.Add,
+            };
+            ActivitySource.AddActivityListener(listener);
 
-        Assert.Empty(activities);
+            await ctx.Items.CountAsync().ConfigureAwait(true);
+
+            Assert.Empty(activities);
+        }
     }
 }

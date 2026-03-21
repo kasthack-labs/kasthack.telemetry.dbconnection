@@ -60,27 +60,27 @@ var factory = new TelemetryDbConnectionFactory(new TelemetryDbConnectionOptions
 
 using (var conn = factory.Wrap(new SqliteConnection(ConnectionString)))
 {
-    await conn.OpenAsync();
+    await conn.OpenAsync().ConfigureAwait(false);
 
     // DDL
     using (var cmd = conn.CreateCommand())
     {
         cmd.CommandText = "CREATE TABLE products (id INTEGER PRIMARY KEY, name TEXT, price REAL)";
-        await cmd.ExecuteNonQueryAsync();
+        await cmd.ExecuteNonQueryAsync().ConfigureAwait(false);
     }
 
     // Insert
     using (var cmd = conn.CreateCommand())
     {
         cmd.CommandText = "INSERT INTO products (id, name, price) VALUES (1, 'Widget', 9.99)";
-        await cmd.ExecuteNonQueryAsync();
+        await cmd.ExecuteNonQueryAsync().ConfigureAwait(false);
     }
 
     // Scalar query
     using (var cmd = conn.CreateCommand())
     {
         cmd.CommandText = "SELECT COUNT(*) FROM products";
-        var count = await cmd.ExecuteScalarAsync();
+        var count = await cmd.ExecuteScalarAsync().ConfigureAwait(false);
         Console.WriteLine($"  Row count: {count}");
     }
 
@@ -88,8 +88,8 @@ using (var conn = factory.Wrap(new SqliteConnection(ConnectionString)))
     using (var cmd = conn.CreateCommand())
     {
         cmd.CommandText = "SELECT id, name, price FROM products";
-        using var reader = await cmd.ExecuteReaderAsync();
-        while (await reader.ReadAsync())
+        using var reader = await cmd.ExecuteReaderAsync().ConfigureAwait(false);
+        while (await reader.ReadAsync().ConfigureAwait(false))
         {
             Console.WriteLine($"  Row: id={reader.GetInt32(0)} name={reader.GetString(1)} price={reader.GetDouble(2)}");
         }
@@ -107,7 +107,7 @@ Console.WriteLine("=== 2. EF Core ===");
 // dropped while the context is in use.
 const string EfConnectionString = "Data Source=ef_sample;Mode=Memory;Cache=Shared";
 using var efKeepAlive = new SqliteConnection(EfConnectionString);
-await efKeepAlive.OpenAsync();
+await efKeepAlive.OpenAsync().ConfigureAwait(false);
 
 // The interceptor wraps each newly created connection in a TelemetryDbConnection
 // via ConnectionCreated; all telemetry is handled by the wrapper.
@@ -126,12 +126,12 @@ var efOptions = new DbContextOptionsBuilder<SampleDbContext>()
 
 using (var ctx = new SampleDbContext(efOptions))
 {
-    await ctx.Database.EnsureCreatedAsync();
+    await ctx.Database.EnsureCreatedAsync().ConfigureAwait(false);
 
     ctx.Products.Add(new Product { Id = 1, Name = "Gadget", Price = 19.99m });
-    await ctx.SaveChangesAsync();
+    await ctx.SaveChangesAsync().ConfigureAwait(false);
 
-    var products = await ctx.Products.ToListAsync();
+    var products = await ctx.Products.ToListAsync().ConfigureAwait(false);
     Console.WriteLine($"  Products in EF context: {products.Count}");
     foreach (var p in products)
     {
@@ -148,7 +148,7 @@ Console.WriteLine("=== 3. DI / IOptions ===");
 // Named in-memory DB so the keepalive connection and scoped connections share state.
 const string DiConnectionString = "Data Source=di_sample;Mode=Memory;Cache=Shared";
 using var diKeepAlive = new SqliteConnection(DiConnectionString);
-await diKeepAlive.OpenAsync();
+await diKeepAlive.OpenAsync().ConfigureAwait(false);
 
 var services = new ServiceCollection();
 services.AddLogging(b => b.AddConsole().SetMinimumLevel(LogLevel.Warning));
@@ -168,24 +168,24 @@ services.AddTelemetryDbConnection(
 using var sp = services.BuildServiceProvider();
 using var scope = sp.CreateScope();
 var diConn = scope.ServiceProvider.GetRequiredService<System.Data.Common.DbConnection>();
-await diConn.OpenAsync();
+await diConn.OpenAsync().ConfigureAwait(false);
 
 using (var cmd = diConn.CreateCommand())
 {
     cmd.CommandText = "CREATE TABLE IF NOT EXISTS items (id INTEGER PRIMARY KEY, label TEXT)";
-    await cmd.ExecuteNonQueryAsync();
+    await cmd.ExecuteNonQueryAsync().ConfigureAwait(false);
 }
 
 using (var cmd = diConn.CreateCommand())
 {
     cmd.CommandText = "INSERT INTO items VALUES (1, 'hello'), (2, 'world')";
-    await cmd.ExecuteNonQueryAsync();
+    await cmd.ExecuteNonQueryAsync().ConfigureAwait(false);
 }
 
 using (var cmd = diConn.CreateCommand())
 {
     cmd.CommandText = "SELECT COUNT(*) FROM items";
-    var count = await cmd.ExecuteScalarAsync();
+    var count = await cmd.ExecuteScalarAsync().ConfigureAwait(false);
     Console.WriteLine($"  Item count: {count}");
 }
 

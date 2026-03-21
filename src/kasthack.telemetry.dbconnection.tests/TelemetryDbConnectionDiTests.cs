@@ -15,7 +15,7 @@ public sealed class TelemetryDbConnectionDiTests
     // ── Non-keyed, factory-only ──────────────────────────────────────────────
 
     [Fact]
-    public void AddTelemetryDbConnection_RegistersFactory_AsSingleton()
+    public void AddTelemetryDbConnectionRegistersFactoryAsSingleton()
     {
         var services = new ServiceCollection();
         services.AddTelemetryDbConnection();
@@ -28,7 +28,7 @@ public sealed class TelemetryDbConnectionDiTests
     }
 
     [Fact]
-    public void AddTelemetryDbConnection_Configure_AppliesOptions()
+    public void AddTelemetryDbConnectionConfigureAppliesOptions()
     {
         var services = new ServiceCollection();
         services.AddTelemetryDbConnection(o => o.CaptureStatements = CaptureStatements.All);
@@ -42,7 +42,7 @@ public sealed class TelemetryDbConnectionDiTests
     // ── Non-keyed, connection-factory ────────────────────────────────────────
 
     [Fact]
-    public void AddTelemetryDbConnection_WithConnectionFactory_RegistersDbConnection()
+    public void AddTelemetryDbConnectionWithConnectionFactoryRegistersDbConnection()
     {
         var services = new ServiceCollection();
         services.AddTelemetryDbConnection(_ => new MockDbConnection());
@@ -55,7 +55,7 @@ public sealed class TelemetryDbConnectionDiTests
     }
 
     [Fact]
-    public void AddTelemetryDbConnection_WithConnectionFactory_Scoped_ReturnsDifferentInstancePerScope()
+    public void AddTelemetryDbConnectionWithConnectionFactoryScopedReturnsDifferentInstancePerScope()
     {
         var services = new ServiceCollection();
         services.AddTelemetryDbConnection(
@@ -80,7 +80,7 @@ public sealed class TelemetryDbConnectionDiTests
     }
 
     [Fact]
-    public void AddTelemetryDbConnection_WithConnectionFactory_Transient_ReturnsDifferentInstanceEachTime()
+    public void AddTelemetryDbConnectionWithConnectionFactoryTransientReturnsDifferentInstanceEachTime()
     {
         var services = new ServiceCollection();
         services.AddTelemetryDbConnection(
@@ -97,7 +97,7 @@ public sealed class TelemetryDbConnectionDiTests
     }
 
     [Fact]
-    public void AddTelemetryDbConnection_WithConnectionFactory_Singleton_ReturnsSameInstance()
+    public void AddTelemetryDbConnectionWithConnectionFactorySingletonReturnsSameInstance()
     {
         var services = new ServiceCollection();
         services.AddTelemetryDbConnection(
@@ -114,7 +114,7 @@ public sealed class TelemetryDbConnectionDiTests
     // ── Keyed, factory-only ──────────────────────────────────────────────────
 
     [Fact]
-    public void AddTelemetryDbConnection_Keyed_RegistersKeyedFactory()
+    public void AddTelemetryDbConnectionKeyedRegistersKeyedFactory()
     {
         var services = new ServiceCollection();
         services.AddTelemetryDbConnection("db1");
@@ -126,7 +126,7 @@ public sealed class TelemetryDbConnectionDiTests
     }
 
     [Fact]
-    public void AddTelemetryDbConnection_TwoKeys_RegisterIndependentFactories()
+    public void AddTelemetryDbConnectionTwoKeysRegisterIndependentFactories()
     {
         var services = new ServiceCollection();
         services.AddTelemetryDbConnection("db1", o => o.EmitTraces = true);
@@ -140,7 +140,7 @@ public sealed class TelemetryDbConnectionDiTests
     }
 
     [Fact]
-    public void AddTelemetryDbConnection_KeyedAndNonKeyed_DoNotConflict()
+    public void AddTelemetryDbConnectionKeyedAndNonKeyedDoNotConflict()
     {
         var services = new ServiceCollection();
         services.AddTelemetryDbConnection();          // non-keyed
@@ -156,7 +156,7 @@ public sealed class TelemetryDbConnectionDiTests
     // ── Keyed, connection-factory ────────────────────────────────────────────
 
     [Fact]
-    public void AddTelemetryDbConnection_Keyed_WithConnectionFactory_RegistersKeyedDbConnection()
+    public void AddTelemetryDbConnectionKeyedWithConnectionFactoryRegistersKeyedDbConnection()
     {
         var services = new ServiceCollection();
         services.AddTelemetryDbConnection("db1", _ => new MockDbConnection());
@@ -169,7 +169,7 @@ public sealed class TelemetryDbConnectionDiTests
     }
 
     [Fact]
-    public void AddTelemetryDbConnection_TwoKeyedConnections_AreIndependent()
+    public void AddTelemetryDbConnectionTwoKeyedConnectionsAreIndependent()
     {
         var services = new ServiceCollection();
         services.AddTelemetryDbConnection("db1", _ => new MockDbConnection());
@@ -186,7 +186,7 @@ public sealed class TelemetryDbConnectionDiTests
     }
 
     [Fact]
-    public void AddTelemetryDbConnection_Keyed_Transient_ReturnsDifferentInstanceEachTime()
+    public void AddTelemetryDbConnectionKeyedTransientReturnsDifferentInstanceEachTime()
     {
         var services = new ServiceCollection();
         services.AddTelemetryDbConnection(
@@ -203,7 +203,7 @@ public sealed class TelemetryDbConnectionDiTests
     }
 
     [Fact]
-    public void AddTelemetryDbConnection_Keyed_Singleton_ReturnsSameInstance()
+    public void AddTelemetryDbConnectionKeyedSingletonReturnsSameInstance()
     {
         var services = new ServiceCollection();
         services.AddTelemetryDbConnection(
