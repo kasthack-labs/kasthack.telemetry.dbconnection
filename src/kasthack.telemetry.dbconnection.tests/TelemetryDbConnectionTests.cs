@@ -46,7 +46,7 @@ public sealed class TelemetryDbConnectionTests
         using var listener = CreateActivityListener(activities);
         ActivitySource.AddActivityListener(listener);
 
-        using var mock = new MockDbConnection();
+        var mock = CreateMockDbConnection();
         using var conn = CreateConnection(mock, new TelemetryDbConnectionOptions { EmitTraces = false, EmitMetrics = false });
         conn.Open();
 
@@ -59,7 +59,7 @@ public sealed class TelemetryDbConnectionTests
         var measurements = new List<double>();
         using var meterListener = CreateMeterListener(measurements);
 
-        using var mock = new MockDbConnection();
+        using var mock = CreateMockDbConnection();
         using var conn = CreateConnection(mock, new TelemetryDbConnectionOptions { EmitTraces = false, EmitMetrics = false });
         conn.Open();
 
@@ -72,7 +72,7 @@ public sealed class TelemetryDbConnectionTests
         var measurements = new List<double>();
         using var meterListener = CreateMeterListener(measurements);
 
-        using var mock = new MockDbConnection();
+        using var mock = CreateMockDbConnection();
         using var conn = CreateConnection(mock, new TelemetryDbConnectionOptions { EmitTraces = false, EmitMetrics = true });
         conn.Open();
 
@@ -162,7 +162,7 @@ public sealed class TelemetryDbConnectionTests
         using var listener = CreateActivityListener(activities);
         ActivitySource.AddActivityListener(listener);
 
-        using var mock = new MockDbConnection();
+        using var mock = CreateMockDbConnection();
         using var conn = CreateConnection(mock, new TelemetryDbConnectionOptions { EmitTraces = true, EmitMetrics = false });
         runOperation(conn);
 
@@ -292,7 +292,7 @@ public sealed class TelemetryDbConnectionTests
         using var listener = CreateActivityListener(activities);
         ActivitySource.AddActivityListener(listener);
 
-        using var mock = new MockDbConnection();
+        using var mock = CreateMockDbConnection();
         using var conn = CreateConnection(mock, new TelemetryDbConnectionOptions { EmitTraces = true, EmitMetrics = false });
         await runOperation(conn);
 
@@ -307,7 +307,7 @@ public sealed class TelemetryDbConnectionTests
         using var listener = CreateActivityListener(activities);
         ActivitySource.AddActivityListener(listener);
 
-        using var mock = new MockDbConnection();
+        using var mock = CreateMockDbConnection();
         using var conn = CreateConnection(mock, new TelemetryDbConnectionOptions
         {
             EmitTraces = true,
@@ -331,7 +331,7 @@ public sealed class TelemetryDbConnectionTests
         using var listener = CreateActivityListener(activities);
         ActivitySource.AddActivityListener(listener);
 
-        using var mock = new MockDbConnection();
+        using var mock = CreateMockDbConnection();
         using var conn = CreateConnection(mock, new TelemetryDbConnectionOptions
         {
             EmitTraces = true,
@@ -355,7 +355,7 @@ public sealed class TelemetryDbConnectionTests
         var measurements = new List<double>();
         using var meterListener = CreateMeterListener(measurements);
 
-        using var mock = new MockDbConnection();
+        using var mock = CreateMockDbConnection();
         using var conn = CreateConnection(mock, new TelemetryDbConnectionOptions
         {
             EmitTraces = false,
@@ -376,7 +376,7 @@ public sealed class TelemetryDbConnectionTests
         using var listener = CreateActivityListener(activities);
         ActivitySource.AddActivityListener(listener);
 
-        using var mock = new MockDbConnection();
+        using var mock = CreateMockDbConnection();
         using var conn = CreateConnection(mock, new TelemetryDbConnectionOptions
         {
             EmitTraces = true,
@@ -395,7 +395,7 @@ public sealed class TelemetryDbConnectionTests
         var measurements = new List<double>();
         using var meterListener = CreateMeterListener(measurements);
 
-        using var mock = new MockDbConnection();
+        var mock = CreateMockDbConnection();
         using var conn = CreateConnection(mock, new TelemetryDbConnectionOptions
         {
             EmitTraces = false,
@@ -415,7 +415,7 @@ public sealed class TelemetryDbConnectionTests
         using var listener = CreateActivityListener(activities);
         ActivitySource.AddActivityListener(listener);
 
-        using var mock = new MockDbConnection();
+        using var mock = CreateMockDbConnection();
         using var conn = CreateConnection(mock, new TelemetryDbConnectionOptions
         {
             EmitTraces = true,
@@ -437,7 +437,7 @@ public sealed class TelemetryDbConnectionTests
         using var listener = CreateActivityListener(activities);
         ActivitySource.AddActivityListener(listener);
 
-        using var mock = new MockDbConnection();
+        using var mock = CreateMockDbConnection();
         using var conn = CreateConnection(mock, new TelemetryDbConnectionOptions
         {
             EmitTraces = true,
@@ -459,7 +459,7 @@ public sealed class TelemetryDbConnectionTests
         using var listener = CreateActivityListener(activities);
         ActivitySource.AddActivityListener(listener);
 
-        using var mock = new MockDbConnection();
+        using var mock = CreateMockDbConnection();
         using var conn = CreateConnection(mock, new TelemetryDbConnectionOptions
         {
             EmitTraces = true,
@@ -482,7 +482,7 @@ public sealed class TelemetryDbConnectionTests
         using var listener = CreateActivityListener(activities);
         ActivitySource.AddActivityListener(listener);
 
-        using var mock = new MockDbConnection();
+        using var mock = CreateMockDbConnection();
         using var conn = CreateConnection(mock, new TelemetryDbConnectionOptions
         {
             EmitTraces = true,
@@ -504,7 +504,7 @@ public sealed class TelemetryDbConnectionTests
         using var listener = CreateActivityListener(activities);
         ActivitySource.AddActivityListener(listener);
 
-        using var mock = new MockDbConnection();
+        using var mock = CreateMockDbConnection();
         using var conn = CreateConnection(mock, new TelemetryDbConnectionOptions
         {
             EmitTraces = true,
@@ -526,7 +526,7 @@ public sealed class TelemetryDbConnectionTests
         using var listener = CreateActivityListener(activities);
         ActivitySource.AddActivityListener(listener);
 
-        using var mock = new MockDbConnection();
+        using var mock = CreateMockDbConnection();
         using var conn = CreateConnection(mock, new TelemetryDbConnectionOptions
         {
             EmitTraces = true,
@@ -549,7 +549,7 @@ public sealed class TelemetryDbConnectionTests
         using var listener = CreateActivityListener(activities);
         ActivitySource.AddActivityListener(listener);
 
-        using var mock = new MockDbConnection();
+        using var mock = CreateMockDbConnection();
         using var conn = CreateConnection(mock, new TelemetryDbConnectionOptions
         {
             EmitTraces = true,
@@ -570,7 +570,7 @@ public sealed class TelemetryDbConnectionTests
         using var listener = CreateActivityListener(activities);
         ActivitySource.AddActivityListener(listener);
 
-        using var mock = new MockDbConnection();
+        using var mock = CreateMockDbConnection();
         using var conn = CreateConnection(mock, new TelemetryDbConnectionOptions
         {
             EmitTraces = true,
