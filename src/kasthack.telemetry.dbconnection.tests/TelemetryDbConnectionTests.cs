@@ -12,7 +12,7 @@ namespace kasthack.telemetry.dbconnection.tests;
 
 public sealed class TelemetryDbConnectionTests
 {
-    private static TelemetryDbConnection CreateConnection(MockDbConnection mock, TelemetryDbConnectionOptions options) =>
+    private static TelemetryDbConnection CreateConnection(DbConnection mock, TelemetryDbConnectionOptions options) =>
         new TelemetryDbConnectionFactory(options).Wrap(mock);
 
     private static ActivityListener CreateActivityListener(List<Activity> activities) =>
@@ -38,6 +38,8 @@ public sealed class TelemetryDbConnectionTests
         ml.Start();
         return ml;
     }
+
+    private DbConnection CreateMockDbConnection() => new MockDbConnection();
 
     [Fact]
     public void EmitTracesFalseDoesNotCreateActivity()
@@ -120,7 +122,7 @@ public sealed class TelemetryDbConnectionTests
         using var conn = CreateConnection(mock, new TelemetryDbConnectionOptions { EmitTraces = false, EmitMetrics = true });
 
         var sw = System.Diagnostics.Stopwatch.StartNew();
-        await conn.OpenAsync();
+        await conn.OpenAsync(TestContext.Current.CancellationToken);
         sw.Stop();
 
         var recorded = Assert.Single(measurements);

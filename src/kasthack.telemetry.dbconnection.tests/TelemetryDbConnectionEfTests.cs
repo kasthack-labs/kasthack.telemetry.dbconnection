@@ -52,32 +52,32 @@ public sealed class TelemetryDbConnectionEfTests : IDisposable
         var ctx = new TestDbContext(options);
         await using (ctx.ConfigureAwait(true))
         {
-            await ctx.Database.EnsureCreatedAsync().ConfigureAwait(true);
+            await ctx.Database.EnsureCreatedAsync(TestContext.Current.CancellationToken).ConfigureAwait(true);
 
             ctx.Items.Add(new TestEntity { Name = "test" });
-            await ctx.SaveChangesAsync().ConfigureAwait(true);
+            await ctx.SaveChangesAsync(TestContext.Current.CancellationToken).ConfigureAwait(true);
 
-            var count = await ctx.Items.CountAsync().ConfigureAwait(true);
+            var count = await ctx.Items.CountAsync(cancellationToken: TestContext.Current.CancellationToken).ConfigureAwait(true);
             Assert.Equal(1, count);
         }
     }
 
     [Fact]
-    public async Task Transaction_CommitWorks()
+    public async Task TransactionCommitWorks()
     {
         var options = CreateOptions(new TelemetryDbConnectionOptions { EmitTraces = true, EmitMetrics = true });
         var ctx = new TestDbContext(options);
         await using (ctx.ConfigureAwait(true))
         {
-            await ctx.Database.EnsureCreatedAsync().ConfigureAwait(true);
-            var tx = (await ctx.Database.BeginTransactionAsync().ConfigureAwait(true));
+            await ctx.Database.EnsureCreatedAsync(TestContext.Current.CancellationToken).ConfigureAwait(true);
+            var tx = (await ctx.Database.BeginTransactionAsync(TestContext.Current.CancellationToken).ConfigureAwait(true));
             await using (tx.ConfigureAwait(true))
             {
                 ctx.Items.Add(new TestEntity { Name = "tx-item" });
-                await ctx.SaveChangesAsync().ConfigureAwait(true);
-                await tx.CommitAsync().ConfigureAwait(true);
+                await ctx.SaveChangesAsync(TestContext.Current.CancellationToken).ConfigureAwait(true);
+                await tx.CommitAsync(TestContext.Current.CancellationToken).ConfigureAwait(true);
 
-                var count = await ctx.Items.CountAsync().ConfigureAwait(true);
+                var count = await ctx.Items.CountAsync(cancellationToken: TestContext.Current.CancellationToken).ConfigureAwait(true);
                 Assert.Equal(1, count);
             }
         }
@@ -90,17 +90,17 @@ public sealed class TelemetryDbConnectionEfTests : IDisposable
         var ctx = new TestDbContext(options);
         await using (ctx.ConfigureAwait(true))
         {
-            await ctx.Database.EnsureCreatedAsync().ConfigureAwait(true);
-            var tx = await ctx.Database.BeginTransactionAsync();
+            await ctx.Database.EnsureCreatedAsync(TestContext.Current.CancellationToken).ConfigureAwait(true);
+            var tx = await ctx.Database.BeginTransactionAsync(TestContext.Current.CancellationToken);
             await using (tx.ConfigureAwait(true))
             {
                 ctx.Items.Add(new TestEntity { Name = "rollback-item" });
-                await ctx.SaveChangesAsync().ConfigureAwait(true);
-                await tx.RollbackAsync().ConfigureAwait(true);
+                await ctx.SaveChangesAsync(TestContext.Current.CancellationToken).ConfigureAwait(true);
+                await tx.RollbackAsync(TestContext.Current.CancellationToken).ConfigureAwait(true);
             }
 
             ctx.ChangeTracker.Clear();
-            var count = await ctx.Items.CountAsync().ConfigureAwait(true);
+            var count = await ctx.Items.CountAsync(TestContext.Current.CancellationToken).ConfigureAwait(true);
             Assert.Equal(0, count);
         }
     }
@@ -121,8 +121,8 @@ public sealed class TelemetryDbConnectionEfTests : IDisposable
         var ctx = new TestDbContext(options);
         await using (ctx.ConfigureAwait(true))
         {
-            await ctx.Database.EnsureCreatedAsync().ConfigureAwait(true);
-            await ctx.Items.CountAsync().ConfigureAwait(true);
+            await ctx.Database.EnsureCreatedAsync(TestContext.Current.CancellationToken).ConfigureAwait(true);
+            await ctx.Items.CountAsync(TestContext.Current.CancellationToken).ConfigureAwait(true);
 
             Assert.NotEmpty(activities);
         }
@@ -136,7 +136,7 @@ public sealed class TelemetryDbConnectionEfTests : IDisposable
         var ctx = new TestDbContext(options);
         await using (ctx.ConfigureAwait(true))
         {
-            await ctx.Database.EnsureCreatedAsync().ConfigureAwait(true);
+            await ctx.Database.EnsureCreatedAsync(TestContext.Current.CancellationToken).ConfigureAwait(true);
 
             // Register listener AFTER setup to avoid capturing schema-creation activities from other tests.
             using var listener = new ActivityListener
@@ -147,7 +147,7 @@ public sealed class TelemetryDbConnectionEfTests : IDisposable
             };
             ActivitySource.AddActivityListener(listener);
 
-            await ctx.Items.CountAsync().ConfigureAwait(true);
+            await ctx.Items.CountAsync(TestContext.Current.CancellationToken).ConfigureAwait(true);
 
             Assert.Empty(activities);
         }

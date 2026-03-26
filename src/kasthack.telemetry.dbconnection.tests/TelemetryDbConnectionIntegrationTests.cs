@@ -50,7 +50,7 @@ public abstract class TelemetryDbConnectionIntegrationTests : IDisposable
         await using (cmd.ConfigureAwait(false))
         {
             cmd.CommandText = $"INSERT INTO {TableName} (id, value) VALUES (2, 'b')";
-            Assert.Equal(1, await cmd.ExecuteNonQueryAsync());
+            Assert.Equal(1, await cmd.ExecuteNonQueryAsync(TestContext.Current.CancellationToken));
         }
     }
 
@@ -75,14 +75,14 @@ public abstract class TelemetryDbConnectionIntegrationTests : IDisposable
         await using (seed.ConfigureAwait(false))
         {
             seed.CommandText = $"INSERT INTO {TableName} (id, value) VALUES (11, 'world')";
-            await seed.ExecuteNonQueryAsync();
+            await seed.ExecuteNonQueryAsync(TestContext.Current.CancellationToken);
         }
 
         var cmd = conn.CreateCommand();
         await using (cmd.ConfigureAwait(false))
         {
             cmd.CommandText = $"SELECT value FROM {TableName} WHERE id = 11";
-            Assert.Equal("world", await cmd.ExecuteScalarAsync());
+            Assert.Equal("world", await cmd.ExecuteScalarAsync(TestContext.Current.CancellationToken));
         }
     }
 
@@ -123,26 +123,26 @@ public abstract class TelemetryDbConnectionIntegrationTests : IDisposable
         await using (seed.ConfigureAwait(true))
         {
             seed.CommandText = $"INSERT INTO {TableName} (id, value) VALUES (30, 'p'), (31, 'q')";
-            await seed.ExecuteNonQueryAsync();
+            await seed.ExecuteNonQueryAsync(TestContext.Current.CancellationToken);
         }
 
         var cmd = conn.CreateCommand();
         await using (cmd.ConfigureAwait(true))
         {
             cmd.CommandText = $"SELECT id, value FROM {TableName} WHERE id BETWEEN 30 AND 31 ORDER BY id";
-            var reader = await cmd.ExecuteReaderAsync();
+            var reader = await cmd.ExecuteReaderAsync(TestContext.Current.CancellationToken);
             await using (reader.ConfigureAwait(true))
             {
 
-                Assert.True(await reader.ReadAsync());
+                Assert.True(await reader.ReadAsync(TestContext.Current.CancellationToken));
                 Assert.Equal(30L, reader.GetInt64(0));
                 Assert.Equal("p", reader.GetString(1));
 
-                Assert.True(await reader.ReadAsync());
+                Assert.True(await reader.ReadAsync(TestContext.Current.CancellationToken));
                 Assert.Equal(31L, reader.GetInt64(0));
                 Assert.Equal("q", reader.GetString(1));
 
-                Assert.False(await reader.ReadAsync());
+                Assert.False(await reader.ReadAsync(TestContext.Current.CancellationToken));
             }
         }
     }
@@ -185,23 +185,23 @@ public abstract class TelemetryDbConnectionIntegrationTests : IDisposable
     public async Task TransactionCommitAsyncPersistsChanges()
     {
         using var conn = OpenConnection();
-        var tx = await conn.BeginTransactionAsync();
+        var tx = await conn.BeginTransactionAsync(TestContext.Current.CancellationToken);
         await using (tx.ConfigureAwait(false))
         {
             var cmd = conn.CreateCommand();
             await using (cmd.ConfigureAwait(false))
             {
                 cmd.CommandText = $"INSERT INTO {TableName} (id, value) VALUES (60, 'async-committed')";
-                await cmd.ExecuteNonQueryAsync();
+                await cmd.ExecuteNonQueryAsync(TestContext.Current.CancellationToken);
             }
-            await tx.CommitAsync();
+            await tx.CommitAsync(TestContext.Current.CancellationToken);
         }
 
         var check = conn.CreateCommand();
         await using (check.ConfigureAwait(true))
         {
             check.CommandText = $"SELECT COUNT(*) FROM {TableName} WHERE id = 60";
-            Assert.Equal(1L, Convert.ToInt64(await check.ExecuteScalarAsync()));
+            Assert.Equal(1L, Convert.ToInt64(await check.ExecuteScalarAsync(TestContext.Current.CancellationToken)));
         }
     }
 
@@ -209,23 +209,23 @@ public abstract class TelemetryDbConnectionIntegrationTests : IDisposable
     public async Task TransactionRollbackAsyncDoesNotPersistChanges()
     {
         using var conn = OpenConnection();
-        var tx = await conn.BeginTransactionAsync();
+        var tx = await conn.BeginTransactionAsync(TestContext.Current.CancellationToken);
         await using (tx.ConfigureAwait(true))
         {
             var cmd = conn.CreateCommand();
             await using (cmd.ConfigureAwait(true))
             {
                 cmd.CommandText = $"INSERT INTO {TableName} (id, value) VALUES (70, 'async-rolled-back')";
-                await cmd.ExecuteNonQueryAsync();
+                await cmd.ExecuteNonQueryAsync(TestContext.Current.CancellationToken);
             }
-            await tx.RollbackAsync();
+            await tx.RollbackAsync(TestContext.Current.CancellationToken);
         }
 
         var check = conn.CreateCommand();
         await using (check.ConfigureAwait(false))
         {
             check.CommandText = $"SELECT COUNT(*) FROM {TableName} WHERE id = 70";
-            Assert.Equal(0L, Convert.ToInt64(await check.ExecuteScalarAsync()));
+            Assert.Equal(0L, Convert.ToInt64(await check.ExecuteScalarAsync(TestContext.Current.CancellationToken)));
         }
     }
 
@@ -279,14 +279,14 @@ public abstract class TelemetryDbConnectionIntegrationTests : IDisposable
             var c2 = batch.CreateBatchCommand();
             c2.CommandText = $"INSERT INTO {TableName} (id, value) VALUES (91, 'async-batch2')";
             batch.BatchCommands.Add(c2);
-            await batch.ExecuteNonQueryAsync();
+            await batch.ExecuteNonQueryAsync(TestContext.Current.CancellationToken);
         }
 
         var check = conn.CreateCommand();
         await using (check.ConfigureAwait(true))
         {
             check.CommandText = $"SELECT COUNT(*) FROM {TableName} WHERE id IN (90, 91)";
-            Assert.Equal(2L, Convert.ToInt64(await check.ExecuteScalarAsync()));
+            Assert.Equal(2L, Convert.ToInt64(await check.ExecuteScalarAsync(TestContext.Current.CancellationToken)));
         }
     }
 
