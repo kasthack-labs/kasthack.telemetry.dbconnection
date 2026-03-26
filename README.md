@@ -88,7 +88,7 @@ new TelemetryDbConnectionOptions
             - All               = 
 
     */
-    ConnectionManagementTracking = ConnectionManagementTracking.Open,
+    TrackConnectionManagement = ConnectionManagementTracking.Open,
 
     /*
         Activity enrichment with DbCommand
