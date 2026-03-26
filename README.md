@@ -114,7 +114,7 @@ tracerProviderBuilder.AddSource(TelemetryDbConnectionInstrumentation.ActivitySou
 meterProviderBuilder.AddMeter(TelemetryDbConnectionInstrumentation.MeterName);
 ```
 
-### Basic usage with DbConnecion
+### Basic usage with DbConnection
 
 ```csharp
 using kasthack.telemetry.dbconnection;
@@ -149,7 +149,7 @@ builder.Services.AddTelemetryDbConnection(
 builder.Services.AddTelemetryDbConnection(
     serviceKey: "orders-db",
     connectionFactory: _ => new SqliteConnection("Data Source=orders.db"),
-    configure: options => { options.EmitTraces = true; options.CaptureStatements = true; });
+    configure: options => { options.EmitTraces = true; options.CaptureStatements = CaptureStatements.Text; });
 
 // Inject by key using [FromKeyedServices]:
 public class UsersRepository([FromKeyedServices("users-db")] DbConnection conn) { ... }
