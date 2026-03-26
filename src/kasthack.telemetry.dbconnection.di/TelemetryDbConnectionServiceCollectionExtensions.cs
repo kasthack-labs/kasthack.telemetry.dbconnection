@@ -135,7 +135,7 @@ public static class TelemetryDbConnectionServiceCollectionExtensions
         object? serviceKey,
         Action<TelemetryDbConnectionOptions>? configure)
     {
-        var optionsName = serviceKey?.ToString() ?? "default";
+        var optionsName = serviceKey?.ToString() ?? Microsoft.Extensions.Options.Options.DefaultName;
 
         services.AddOptions<TelemetryDbConnectionOptions>(optionsName);
 
