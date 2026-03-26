@@ -18,12 +18,12 @@ A set of .NET NuGet packages that wrap any `DbConnection` with OpenTelemetry-com
 
 While some ADO.net drivers has telemetry support, kasthack.telemetry.dbconnection has
 
-- **Metrics support.** Most drivers don't do that.
-- **Correct reader timing** — the span for `ExecuteReader` stays open until the `DbDataReader` is disposed, capturing the full time spent reading rows; built-in SqlClient tracing closes the span at execute time and misses reader duration.
-- **Transaction instrumentation** — `Commit`, `Rollback`, `Save`/`Release` savepoints are all measured and traced, not just query execution.
-- **Connection overhead instrumentation** - opening connections gets tracked.
-- **Uniformity across drivers** — a single instrumentation layer works identically with SQLite, SQL Server, PostgreSQL, MySQL, or any other ADO.NET provider, without per-driver plugins;
-- **.NET Framework / netstandard support** — targets `netstandard2.0` so it works in legacy .NET Framework applications as well as modern .NET.
+- ✅**Metrics support.** Most drivers don't do that.
+- ✅**Correct reader timing** — the span for `ExecuteReader` stays open until the `DbDataReader` is disposed, capturing the full time spent reading rows; built-in SqlClient tracing closes the span at execute time and misses reader duration.
+- ✅**Transaction instrumentation** — `Commit`, `Rollback`, `Save`/`Release` savepoints are all measured and traced, not just query execution.
+- ✅**Connection overhead instrumentation** - opening connections gets tracked.
+- ✅**Uniformity across drivers** — a single instrumentation layer works identically with SQLite, SQL Server, PostgreSQL, MySQL, or any other ADO.NET provider, without per-driver plugins;
+- 🔃 **.NET Framework / netstandard support** — targets `netstandard2.0` so it works in legacy .NET Framework applications as well as modern .NET.
 
 ### Packages
 
