@@ -155,6 +155,7 @@ public abstract class TelemetryDbConnectionIntegrationTests : IDisposable
         using var conn = OpenConnection();
         using var tx = conn.BeginTransaction();
         using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
         cmd.CommandText = $"INSERT INTO {TableName} (id, value) VALUES (40, 'committed')";
         cmd.ExecuteNonQuery();
         tx.Commit();
@@ -171,6 +172,7 @@ public abstract class TelemetryDbConnectionIntegrationTests : IDisposable
         using (var tx = conn.BeginTransaction())
         {
             using var cmd = conn.CreateCommand();
+            cmd.Transaction = tx;
             cmd.CommandText = $"INSERT INTO {TableName} (id, value) VALUES (50, 'rolled-back')";
             cmd.ExecuteNonQuery();
             tx.Rollback();
@@ -191,6 +193,7 @@ public abstract class TelemetryDbConnectionIntegrationTests : IDisposable
             var cmd = conn.CreateCommand();
             await using (cmd.ConfigureAwait(false))
             {
+                cmd.Transaction = tx;
                 cmd.CommandText = $"INSERT INTO {TableName} (id, value) VALUES (60, 'async-committed')";
                 await cmd.ExecuteNonQueryAsync(TestContext.Current.CancellationToken);
             }
@@ -215,6 +218,7 @@ public abstract class TelemetryDbConnectionIntegrationTests : IDisposable
             var cmd = conn.CreateCommand();
             await using (cmd.ConfigureAwait(true))
             {
+                cmd.Transaction = tx;
                 cmd.CommandText = $"INSERT INTO {TableName} (id, value) VALUES (70, 'async-rolled-back')";
                 await cmd.ExecuteNonQueryAsync(TestContext.Current.CancellationToken);
             }

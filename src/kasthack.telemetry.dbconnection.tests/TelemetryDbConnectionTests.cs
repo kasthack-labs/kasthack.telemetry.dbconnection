@@ -39,7 +39,7 @@ public sealed class TelemetryDbConnectionTests
         return ml;
     }
 
-    private DbConnection CreateMockDbConnection() => new MockDbConnection();
+    private static DbConnection CreateMockDbConnection() => new MockDbConnection();
 
     [Fact]
     public void EmitTracesFalseDoesNotCreateActivity()
@@ -48,7 +48,7 @@ public sealed class TelemetryDbConnectionTests
         using var listener = CreateActivityListener(activities);
         ActivitySource.AddActivityListener(listener);
 
-        var mock = CreateMockDbConnection();
+        using var mock = CreateMockDbConnection();
         using var conn = CreateConnection(mock, new TelemetryDbConnectionOptions { EmitTraces = false, EmitMetrics = false });
         conn.Open();
 
@@ -397,7 +397,7 @@ public sealed class TelemetryDbConnectionTests
         var measurements = new List<double>();
         using var meterListener = CreateMeterListener(measurements);
 
-        var mock = CreateMockDbConnection();
+        using var mock = CreateMockDbConnection();
         using var conn = CreateConnection(mock, new TelemetryDbConnectionOptions
         {
             EmitTraces = false,

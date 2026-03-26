@@ -9,8 +9,6 @@
     <ProjectReference Include="..\kasthack.telemetry.dbconnection\kasthack.telemetry.dbconnection.csproj" />
     <ProjectReference Include="..\kasthack.telemetry.dbconnection.ef\kasthack.telemetry.dbconnection.ef.csproj" />
     <ProjectReference Include="..\kasthack.telemetry.dbconnection.di\kasthack.telemetry.dbconnection.di.csproj" />
-  </ItemGroup>
-  <ItemGroup>
     <PackageReference Include="xunit.v3" />
     <PackageReference Include="xunit.runner.visualstudio">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
