@@ -90,9 +90,11 @@ public sealed class TelemetryDbCommand : DbCommand
     /// <inheritdoc/>
     public override void Prepare() => _connection.ExecuteInstrumented(PrepareOperation, _inner.Prepare);
 
+#if NET6_0_OR_GREATER
     /// <inheritdoc/>
     public override Task PrepareAsync(CancellationToken cancellationToken = default) =>
         _connection.ExecuteInstrumentedAsync(PrepareOperation, () => _inner.PrepareAsync(cancellationToken));
+#endif
 
     /// <inheritdoc/>
     protected override DbParameter CreateDbParameter() => _inner.CreateParameter();

@@ -1,7 +1,7 @@
 <Project>
   <PropertyGroup>
     <!-- use the latest build target -->
-    <TargetFrameworks>net10.0</TargetFrameworks>
+    <TargetFrameworks>net10.0;netstandard2.0</TargetFrameworks>
     <LangVersion>latest</LangVersion>
 
     <!-- defensive code style settings -->

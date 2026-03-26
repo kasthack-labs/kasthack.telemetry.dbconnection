@@ -23,8 +23,12 @@ public sealed class TelemetryDbConnection : DbConnection
     private const string ChangeDatabaseOperation = "change_database";
     private const string GetSchemaOperation = "get_schema";
 
+#if NET8_0_OR_GREATER
     private static readonly System.Buffers.SearchValues<char> _whitespaceChars =
         System.Buffers.SearchValues.Create([' ', '\t', '\r', '\n']);
+#else
+    private static readonly char[] _whitespaceChars = [' ', '\t', '\r', '\n'];
+#endif
 
     private static readonly Action<ILogger, Exception?> _logEnrichActivityError =
         LoggerMessage.Define(LogLevel.Warning, new EventId(1, "EnrichActivityError"), "An exception occurred in the EnrichActivity callback.");
@@ -56,7 +60,9 @@ public sealed class TelemetryDbConnection : DbConnection
     public DbConnection InnerConnection => _inner;
 
     #region DbConnection properties
+#if NET7_0_OR_GREATER
     public override bool CanCreateBatch => _inner.CanCreateBatch;
+#endif
     protected override bool CanRaiseEvents => true;
     public override int ConnectionTimeout => _inner.ConnectionTimeout;
 
@@ -85,9 +91,11 @@ public sealed class TelemetryDbConnection : DbConnection
     public override void ChangeDatabase(string databaseName) =>
         ExecuteInstrumented(ChangeDatabaseOperation, () => _inner.ChangeDatabase(databaseName));
 
+#if NET7_0_OR_GREATER
     /// <inheritdoc/>
     public override Task ChangeDatabaseAsync(string databaseName, CancellationToken cancellationToken = default) =>
         ExecuteInstrumentedAsync(ChangeDatabaseOperation, () => _inner.ChangeDatabaseAsync(databaseName, cancellationToken));
+#endif
 
     /// <inheritdoc/>
     public override void Close()
@@ -102,10 +110,12 @@ public sealed class TelemetryDbConnection : DbConnection
         }
     }
 
+#if NET7_0_OR_GREATER
     /// <inheritdoc/>
     public override Task CloseAsync() => _options.TrackConnectionManagement.HasFlag(ConnectionManagementTracking.Close)
             ? ExecuteInstrumentedAsync(CloseOperation, _inner.CloseAsync)
             : _inner.CloseAsync();
+#endif
 
     /// <inheritdoc/>
     public override void Open()
@@ -131,17 +141,21 @@ public sealed class TelemetryDbConnection : DbConnection
             ExecuteInstrumented<DbTransaction>(BeginTransactionOperation, () => _inner.BeginTransaction(isolationLevel)),
             this);
 
+#if NET6_0_OR_GREATER
     /// <inheritdoc/>
     protected override async ValueTask<DbTransaction> BeginDbTransactionAsync(IsolationLevel isolationLevel, CancellationToken cancellationToken) =>
         new TelemetryDbTransaction(
             await ExecuteInstrumentedAsync<DbTransaction>(BeginTransactionOperation, async () => await _inner.BeginTransactionAsync(isolationLevel, cancellationToken).ConfigureAwait(false)).ConfigureAwait(false),
             this);
+#endif
 
     /// <inheritdoc/>
     protected override DbCommand CreateDbCommand() => new TelemetryDbCommand(_inner.CreateCommand(), this);
 
+#if NET7_0_OR_GREATER
     /// <inheritdoc/>
     protected override DbBatch CreateDbBatch() => new TelemetryDbBatch(_inner.CreateBatch(), this);
+#endif
 
     /// <inheritdoc/>
     public override DataTable GetSchema() => ExecuteInstrumented<DataTable>(GetSchemaOperation, _inner.GetSchema);
@@ -152,6 +166,7 @@ public sealed class TelemetryDbConnection : DbConnection
     /// <inheritdoc/>
     public override DataTable GetSchema(string collectionName, string?[] restrictionValues) => ExecuteInstrumented<DataTable>(GetSchemaOperation, () => _inner.GetSchema(collectionName, restrictionValues));
 
+#if NET7_0_OR_GREATER
     /// <inheritdoc/>
     public override Task<DataTable> GetSchemaAsync(CancellationToken cancellationToken = default) => ExecuteInstrumentedAsync<DataTable>(GetSchemaOperation, () => _inner.GetSchemaAsync(cancellationToken));
 
@@ -160,6 +175,7 @@ public sealed class TelemetryDbConnection : DbConnection
 
     /// <inheritdoc/>
     public override Task<DataTable> GetSchemaAsync(string collectionName, string?[] restrictionValues, CancellationToken cancellationToken = default) => ExecuteInstrumentedAsync<DataTable>(GetSchemaOperation, () => _inner.GetSchemaAsync(collectionName, restrictionValues, cancellationToken));
+#endif
 
     /// <inheritdoc/>
     protected override void Dispose(bool disposing)
@@ -172,12 +188,15 @@ public sealed class TelemetryDbConnection : DbConnection
 
         base.Dispose(disposing);
     }
+
+#if NET5_0_OR_GREATER
     public override async ValueTask DisposeAsync()
     {
         _inner.StateChange -= _stateChangeHandler;
         await _inner.DisposeAsync().ConfigureAwait(false);
         await base.DisposeAsync().ConfigureAwait(false);
     }
+#endif
     public override int GetHashCode() => _inner.GetHashCode();
 
     public override string ToString() => _inner.ToString();
@@ -243,7 +262,11 @@ public sealed class TelemetryDbConnection : DbConnection
             return;
         }
 
+#if NET7_0_OR_GREATER
         var duration = Stopwatch.GetElapsedTime(startTimestamp).TotalSeconds;
+#else
+        var duration = (double)(Stopwatch.GetTimestamp() - startTimestamp) / Stopwatch.Frequency;
+#endif
         var tags = new List<KeyValuePair<string, object?>>
         {
             new(DbSemanticConventions.DbName, Database),
@@ -318,6 +341,7 @@ public sealed class TelemetryDbConnection : DbConnection
             return "execute";
         }
 
+#if NET5_0_OR_GREATER
         var text = command.CommandText.AsSpan().TrimStart();
 
         var spaceIndex = text.IndexOfAny(_whitespaceChars);
@@ -332,6 +356,12 @@ public sealed class TelemetryDbConnection : DbConnection
         }
 
         return keyword.ToString().ToUpperInvariant();
+#else
+        var text = command.CommandText.TrimStart();
+        var spaceIndex = text.IndexOfAny(_whitespaceChars);
+        var keyword = spaceIndex < 0 ? text : text.Substring(0, spaceIndex);
+        return keyword.ToUpperInvariant();
+#endif
     }
     #endregion
 
