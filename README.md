@@ -114,7 +114,7 @@ tracerProviderBuilder.AddSource(TelemetryDbConnectionInstrumentation.ActivitySou
 meterProviderBuilder.AddMeter(TelemetryDbConnectionInstrumentation.MeterName);
 ```
 
-### Basic usage with DbConnecion
+### Basic usage with DbConnection
 
 ```csharp
 using kasthack.telemetry.dbconnection;
