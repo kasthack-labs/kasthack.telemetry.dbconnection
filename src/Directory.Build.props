@@ -28,7 +28,7 @@
 
     <!-- Global code settings -->
     <ImplicitUsings>enable</ImplicitUsings>
-    <NoWarn>$(NoWarn);CS1591</NoWarn>
+    <NoWarn>$(NoWarn);CS1591;NU1701;</NoWarn>
 
     <!-- Nuget options -->
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>

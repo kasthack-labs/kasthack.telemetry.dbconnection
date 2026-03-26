@@ -12,7 +12,7 @@ internal sealed class MockDbConnection : DbConnection
     public TimeSpan CommandDelay { get; set; } = TimeSpan.Zero;
     public int OpenCalled { get; private set; }
     public int CloseCalled { get; private set; }
-    public List<string> ExecutedCommandTexts { get; } = new();
+    public List<string> ExecutedCommandTexts { get; } = [];
 
     [AllowNull]
     public override string ConnectionString
@@ -57,24 +57,17 @@ internal sealed class MockDbConnection : DbConnection
 
     protected override DbBatch CreateDbBatch() => new MockDbBatch(this);
 
-    public override DataTable GetSchema() => new DataTable();
-    public override DataTable GetSchema(string collectionName) => new DataTable();
-    public override DataTable GetSchema(string collectionName, string?[] restrictionValues) => new DataTable();
+    public override DataTable GetSchema() => new();
+    public override DataTable GetSchema(string collectionName) => new();
+    public override DataTable GetSchema(string collectionName, string?[] restrictionValues) => new();
 }
 
-internal sealed class MockDbCommand : DbCommand
+internal sealed class MockDbCommand(MockDbConnection? connection) : DbCommand
 {
-    private readonly MockDbConnection _connection;
-    private DbConnection? _dbConnection;
-    private DbTransaction? _dbTransaction;
-    private readonly MockDbParameterCollection _parameters;
-
-    public MockDbCommand(MockDbConnection connection)
-    {
-        _connection = connection;
-        _dbConnection = connection;
-        _parameters = new MockDbParameterCollection();
-    }
+#pragma warning disable CA2213 // Mock object
+    private MockDbConnection? _connection = connection;
+#pragma warning restore CA2213 //
+    private readonly MockDbParameterCollection _parameters = [];
 
     [AllowNull]
     public override string CommandText { get; set; } = string.Empty;
@@ -85,65 +78,61 @@ internal sealed class MockDbCommand : DbCommand
 
     protected override DbConnection? DbConnection
     {
-        get => _dbConnection;
-        set => _dbConnection = value;
+        get => _connection;
+        set => _connection = value as MockDbConnection;
     }
 
     protected override DbParameterCollection DbParameterCollection => _parameters;
 
-    protected override DbTransaction? DbTransaction
-    {
-        get => _dbTransaction;
-        set => _dbTransaction = value;
-    }
+    protected override DbTransaction? DbTransaction { get; set; }
 
     public override void Cancel() =>
-        Thread.Sleep(_connection.CommandDelay);
+        Thread.Sleep(_connection!.CommandDelay);
 
     public override void Prepare() =>
-        Thread.Sleep(_connection.CommandDelay);
+        Thread.Sleep(_connection!.CommandDelay);
 
     public override Task PrepareAsync(CancellationToken cancellationToken = default) =>
-        Task.Delay(_connection.CommandDelay, cancellationToken);
+        Task.Delay(_connection!.CommandDelay, cancellationToken);
 
     public override int ExecuteNonQuery()
     {
-        Thread.Sleep(_connection.CommandDelay);
+        Thread.Sleep(_connection!.CommandDelay);
         _connection.ExecutedCommandTexts.Add(CommandText);
         return 0;
     }
 
     public override object? ExecuteScalar()
     {
-        Thread.Sleep(_connection.CommandDelay);
+        Thread.Sleep(_connection!.CommandDelay);
         _connection.ExecutedCommandTexts.Add(CommandText);
         return null;
     }
 
     protected override DbDataReader ExecuteDbDataReader(CommandBehavior behavior)
     {
-        Thread.Sleep(_connection.CommandDelay);
+        Thread.Sleep(_connection!.CommandDelay);
         _connection.ExecutedCommandTexts.Add(CommandText);
         return new MockDbDataReader();
     }
 
     public override async Task<int> ExecuteNonQueryAsync(CancellationToken cancellationToken = default)
     {
-        await Task.Delay(_connection.CommandDelay, cancellationToken).ConfigureAwait(false);
+        await Task.Delay(_connection!.CommandDelay, cancellationToken).ConfigureAwait(false);
         _connection.ExecutedCommandTexts.Add(CommandText);
         return 0;
     }
 
     public override async Task<object?> ExecuteScalarAsync(CancellationToken cancellationToken = default)
     {
-        await Task.Delay(_connection.CommandDelay, cancellationToken).ConfigureAwait(false);
+        await Task.Delay(_connection!.CommandDelay, cancellationToken).ConfigureAwait(false);
         _connection.ExecutedCommandTexts.Add(CommandText);
         return null;
     }
 
     protected override async Task<DbDataReader> ExecuteDbDataReaderAsync(CommandBehavior behavior, CancellationToken cancellationToken)
     {
-        await Task.Delay(_connection.CommandDelay, cancellationToken).ConfigureAwait(false);
+        await Task.Delay(_connection!.CommandDelay, cancellationToken).ConfigureAwait(false);
         _connection.ExecutedCommandTexts.Add(CommandText);
         return new MockDbDataReader();
     }
@@ -187,17 +176,13 @@ internal sealed class MockDbDataReader : DbDataReader
     public override IEnumerator GetEnumerator() => throw new NotSupportedException();
 }
 
-internal sealed class MockDbTransaction : DbTransaction
+internal sealed class MockDbTransaction(MockDbConnection connection, IsolationLevel isolationLevel) : DbTransaction
 {
-    private readonly MockDbConnection _connection;
+#pragma warning disable CA2213 // Mock object
+    private readonly MockDbConnection _connection = connection;
+#pragma warning restore CA2213 //
 
-    public MockDbTransaction(MockDbConnection connection, IsolationLevel isolationLevel)
-    {
-        _connection = connection;
-        IsolationLevel = isolationLevel;
-    }
-
-    public override IsolationLevel IsolationLevel { get; }
+    public override IsolationLevel IsolationLevel { get; } = isolationLevel;
     protected override DbConnection DbConnection => _connection;
 
     public override void Commit() =>
@@ -231,7 +216,7 @@ internal sealed class MockDbTransaction : DbTransaction
 }
 
 internal sealed class MockDbParameterCollection : DbParameterCollection{
-    private readonly List<DbParameter> _items = new();
+    private readonly List<DbParameter> _items = [];
 
     public override int Count => _items.Count;
     public override object SyncRoot => this;
@@ -247,7 +232,7 @@ internal sealed class MockDbParameterCollection : DbParameterCollection{
 
     public override void AddRange(Array values)
     {
-        foreach (object? item in values)
+        foreach (var item in values)
         {
             if (item is DbParameter param)
             {
@@ -322,11 +307,11 @@ internal sealed class MockDbParameterCollection : DbParameterCollection{
         _items[IndexOf(parameterName)] = value;
 }
 
-internal sealed class MockDbBatch : DbBatch
+internal sealed class MockDbBatch(MockDbConnection connection) : DbBatch
 {
-    private readonly MockDbConnection _connection;
-
-    public MockDbBatch(MockDbConnection connection) => _connection = connection;
+#pragma warning disable CA2213 // Mock object
+    private readonly MockDbConnection _connection = connection;
+#pragma warning restore CA2213 // 
 
     public override int Timeout { get; set; } = 30;
     protected override DbBatchCommandCollection DbBatchCommands => new MockDbBatchCommandCollection();
@@ -387,7 +372,7 @@ internal sealed class MockDbBatchCommand : DbBatchCommand
 
 internal sealed class MockDbBatchCommandCollection : DbBatchCommandCollection
 {
-    private readonly List<DbBatchCommand> _items = new();
+    private readonly List<DbBatchCommand> _items = [];
     public override int Count => _items.Count;
     public override bool IsReadOnly => false;
     public override void Add(DbBatchCommand item) => _items.Add(item);

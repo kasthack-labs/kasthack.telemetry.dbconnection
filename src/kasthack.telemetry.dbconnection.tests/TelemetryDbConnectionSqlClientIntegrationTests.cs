@@ -6,6 +6,7 @@ using Microsoft.Data.SqlClient;
 using Xunit.Sdk;
 
 namespace kasthack.telemetry.dbconnection.tests;
+#pragma warning disable CA2100 // Constants
 
 /// <summary>
 /// Runs the shared integration suite against a real SQL Server instance.
@@ -73,10 +74,14 @@ public sealed class TelemetryDbConnectionSqlClientIntegrationTests
             throw SkipException.ForSkip("MSSQL_CONNECTION_STRING environment variable is not set");
         }
 
+#pragma warning disable CA2000 // Constructor
         var conn = new TelemetryDbConnectionFactory(
             new TelemetryDbConnectionOptions { EmitTraces = true, EmitMetrics = true })
             .Wrap(new SqlConnection(_connectionString));
+#pragma warning restore CA2000
         conn.Open();
         return conn;
     }
 }
+
+#pragma warning restore CA2100 // 

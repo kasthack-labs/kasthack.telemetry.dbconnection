@@ -62,7 +62,7 @@ public abstract class TelemetryDbConnectionIntegrationTests : IDisposable
         seed.CommandText = $"INSERT INTO {TableName} (id, value) VALUES (10, 'hello')";
         seed.ExecuteNonQuery();
 
-        using var cmd = conn.CreateCommand();
+        await using var cmd = conn.CreateCommand();
         cmd.CommandText = $"SELECT value FROM {TableName} WHERE id = 10";
         Assert.Equal("hello", cmd.ExecuteScalar());
     }
@@ -70,7 +70,7 @@ public abstract class TelemetryDbConnectionIntegrationTests : IDisposable
     [Fact]
     public async Task ExecuteScalarAsyncReturnsValue()
     {
-        using var conn = OpenConnection();
+        await using var conn = OpenConnection();
         var seed = conn.CreateCommand();
         await using (seed.ConfigureAwait(false))
         {
@@ -118,7 +118,7 @@ public abstract class TelemetryDbConnectionIntegrationTests : IDisposable
     [Fact]
     public async Task ExecuteReaderAsyncReadsMultipleRows()
     {
-        using var conn = OpenConnection();
+        await using var conn = OpenConnection();
         var seed = conn.CreateCommand();
         await using (seed.ConfigureAwait(true))
         {
@@ -186,7 +186,7 @@ public abstract class TelemetryDbConnectionIntegrationTests : IDisposable
     [Fact]
     public async Task TransactionCommitAsyncPersistsChanges()
     {
-        using var conn = OpenConnection();
+        await using var conn = OpenConnection();
         var tx = await conn.BeginTransactionAsync(TestContext.Current.CancellationToken);
         await using (tx.ConfigureAwait(false))
         {
@@ -211,7 +211,7 @@ public abstract class TelemetryDbConnectionIntegrationTests : IDisposable
     [Fact]
     public async Task TransactionRollbackAsyncDoesNotPersistChanges()
     {
-        using var conn = OpenConnection();
+        await using var conn = OpenConnection();
         var tx = await conn.BeginTransactionAsync(TestContext.Current.CancellationToken);
         await using (tx.ConfigureAwait(true))
         {
@@ -269,7 +269,7 @@ public abstract class TelemetryDbConnectionIntegrationTests : IDisposable
     [Fact]
     public async Task BatchExecuteNonQueryAsyncInsertsMultipleRows()
     {
-        using var conn = OpenConnection();
+        await using var conn = OpenConnection();
         if (!conn.CanCreateBatch)
         {
             throw SkipException.ForSkip($"{conn.InnerConnection.GetType().Name} does not support DbBatch");

@@ -11,6 +11,7 @@
  *   3. DI    – IServiceCollection / IOptions via AddTelemetryDbConnection
  */
 
+using System;
 using kasthack.telemetry.dbconnection;
 using kasthack.telemetry.dbconnection.di;
 using kasthack.telemetry.dbconnection.ef;
@@ -51,14 +52,16 @@ var factory = new TelemetryDbConnectionFactory(new TelemetryDbConnectionOptions
     EmitMetrics = true,
     CaptureStatements = CaptureStatements.All,
     // Enrich every span with a custom tag.
-    EnrichActivity = (activity, cmd) =>
+    EnrichActivity = (activity, _) =>
         activity.SetTag("sample.section", "core"),
     // Enrich every metric data point with a custom tag.
-    EnrichMetrics = (tags, cmd) =>
+    EnrichMetrics = (tags, _) =>
         tags.Add(new KeyValuePair<string, object?>("sample.section", "core")),
 });
 
-using (var conn = factory.Wrap(new SqliteConnection(ConnectionString)))
+using var rawConnection = new SqliteConnection(ConnectionString);
+
+using (var conn = factory.Wrap(rawConnection))
 {
     await conn.OpenAsync().ConfigureAwait(false);
 
@@ -115,7 +118,7 @@ var interceptor = new TelemetryDbConnectionInterceptor(new TelemetryDbConnection
 {
     EmitTraces = true,
     EmitMetrics = true,
-    EnrichActivity = (activity, cmd) =>
+    EnrichActivity = (activity, _) =>
         activity.SetTag("sample.section", "ef"),
 });
 
@@ -161,7 +164,7 @@ services.AddTelemetryDbConnection(
     {
         options.EmitTraces = true;
         options.EmitMetrics = true;
-        options.EnrichActivity = (activity, cmd) =>
+        options.EnrichActivity = (activity, _) =>
             activity.SetTag("sample.section", "di");
     });
 
@@ -191,3 +194,4 @@ using (var cmd = diConn.CreateCommand())
 
 Console.WriteLine();
 Console.WriteLine("Done — check the console output above for OTel traces and metrics.");
+

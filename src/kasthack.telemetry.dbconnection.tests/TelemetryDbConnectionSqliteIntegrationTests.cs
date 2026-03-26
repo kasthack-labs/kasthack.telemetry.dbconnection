@@ -29,9 +29,11 @@ public sealed class TelemetryDbConnectionSqliteIntegrationTests
 
     protected override TelemetryDbConnection OpenConnection()
     {
+#pragma warning disable CA2000 // Basically, a constructor
         var conn = new TelemetryDbConnectionFactory(
             new TelemetryDbConnectionOptions { EmitTraces = true, EmitMetrics = true })
             .Wrap(new SqliteConnection(_connectionString));
+#pragma warning restore CA2000 // 
         conn.Open();
         return conn;
     }

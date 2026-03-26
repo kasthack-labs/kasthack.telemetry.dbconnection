@@ -16,24 +16,26 @@ public sealed class TelemetryDbConnectionTests
         new TelemetryDbConnectionFactory(options).Wrap(mock);
 
     private static ActivityListener CreateActivityListener(List<Activity> activities) =>
-        new ActivityListener
+        new()
         {
             ShouldListenTo = source => source.Name == TelemetryDbConnectionInstrumentation.ActivitySourceName,
-            Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllDataAndRecorded,
+            Sample = (ref _) => ActivitySamplingResult.AllDataAndRecorded,
             ActivityStarted = activities.Add,
         };
 
     private static MeterListener CreateMeterListener(List<double> measurements)
     {
-        var ml = new MeterListener();
-        ml.InstrumentPublished = (instrument, listener) =>
+        var ml = new MeterListener
         {
-            if (instrument.Meter.Name == TelemetryDbConnectionInstrumentation.MeterName)
+            InstrumentPublished = (instrument, listener) =>
             {
-                listener.EnableMeasurementEvents(instrument);
+                if (instrument.Meter.Name == TelemetryDbConnectionInstrumentation.MeterName)
+                {
+                    listener.EnableMeasurementEvents(instrument);
+                }
             }
         };
-        ml.SetMeasurementEventCallback<double>((instrument, measurement, tags, state) =>
+        ml.SetMeasurementEventCallback<double>((_, measurement, _, _) =>
             measurements.Add(measurement));
         ml.Start();
         return ml;
@@ -118,21 +120,26 @@ public sealed class TelemetryDbConnectionTests
         var measurements = new List<double>();
         using var meterListener = CreateMeterListener(measurements);
 
-        using var mock = new MockDbConnection { CommandDelay = TimeSpan.FromMilliseconds(delayMs) };
-        using var conn = CreateConnection(mock, new TelemetryDbConnectionOptions { EmitTraces = false, EmitMetrics = true });
+        var mock = new MockDbConnection { CommandDelay = TimeSpan.FromMilliseconds(delayMs) };
+        await using (mock.ConfigureAwait(false))
+        {
+            var conn = CreateConnection(mock, new TelemetryDbConnectionOptions { EmitTraces = false, EmitMetrics = true });
+            await using (conn)
+            {
+                var sw = System.Diagnostics.Stopwatch.StartNew();
+                await conn.OpenAsync(TestContext.Current.CancellationToken);
+                sw.Stop();
 
-        var sw = System.Diagnostics.Stopwatch.StartNew();
-        await conn.OpenAsync(TestContext.Current.CancellationToken);
-        sw.Stop();
+                var recorded = Assert.Single(measurements);
+                var actualSeconds = sw.Elapsed.TotalSeconds;
+                var expectedSeconds = delayMs / 1000.0;
 
-        var recorded = Assert.Single(measurements);
-        var actualSeconds = sw.Elapsed.TotalSeconds;
-        var expectedSeconds = delayMs / 1000.0;
-
-        Assert.True(recorded >= expectedSeconds - 0.001,
-            $"Recorded {recorded}s should be >= expected {expectedSeconds}s");
-        Assert.True(Math.Abs(recorded - actualSeconds) < 0.1,
-            $"Difference between recorded {recorded:F4}s and actual {actualSeconds:F4}s exceeds 100ms tolerance");
+                Assert.True(recorded >= expectedSeconds - 0.001,
+                    $"Recorded {recorded}s should be >= expected {expectedSeconds}s");
+                Assert.True(Math.Abs(recorded - actualSeconds) < 0.1,
+                    $"Difference between recorded {recorded:F4}s and actual {actualSeconds:F4}s exceeds 100ms tolerance");
+            }
+        }
     }
 
     public static TheoryData<string, Action<TelemetryDbConnection>> SyncOperations =>
@@ -250,17 +257,11 @@ public sealed class TelemetryDbConnectionTests
             },
             {
                 "change_database",
-                async c =>
-                {
-                    await c.ChangeDatabaseAsync("MockDb").ConfigureAwait(false);
-                }
+                async c => await c.ChangeDatabaseAsync("MockDb").ConfigureAwait(false)
             },
             {
                 "get_schema",
-                async c =>
-                {
-                    await c.GetSchemaAsync().ConfigureAwait(false);
-                }
+                async c => await c.GetSchemaAsync().ConfigureAwait(false)
             },
             {
                 "begin_transaction",
@@ -294,8 +295,8 @@ public sealed class TelemetryDbConnectionTests
         using var listener = CreateActivityListener(activities);
         ActivitySource.AddActivityListener(listener);
 
-        using var mock = CreateMockDbConnection();
-        using var conn = CreateConnection(mock, new TelemetryDbConnectionOptions { EmitTraces = true, EmitMetrics = false });
+        await using var mock = CreateMockDbConnection();
+        await using var conn = CreateConnection(mock, new TelemetryDbConnectionOptions { EmitTraces = true, EmitMetrics = false });
         await runOperation(conn);
 
         Assert.Contains(activities, a => a.DisplayName == expectedOperation);
@@ -314,7 +315,7 @@ public sealed class TelemetryDbConnectionTests
         {
             EmitTraces = true,
             EmitMetrics = false,
-            EnrichActivity = (activity, cmd) => capturedCommand = cmd,
+            EnrichActivity = (_, cmd) => capturedCommand = cmd,
         });
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT 1";
@@ -338,7 +339,7 @@ public sealed class TelemetryDbConnectionTests
         {
             EmitTraces = true,
             EmitMetrics = false,
-            EnrichActivity = (activity, cmd) =>
+            EnrichActivity = (_, cmd) =>
             {
                 callbackCalled = true;
                 capturedCommand = cmd;
@@ -362,7 +363,7 @@ public sealed class TelemetryDbConnectionTests
         {
             EmitTraces = false,
             EmitMetrics = true,
-            EnrichMetrics = (tags, cmd) => enrichMetricsCalled = true,
+            EnrichMetrics = (_, _) => enrichMetricsCalled = true,
         });
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT 1";
@@ -383,7 +384,7 @@ public sealed class TelemetryDbConnectionTests
         {
             EmitTraces = true,
             EmitMetrics = false,
-            EnrichActivity = (activity, cmd) => throw new InvalidOperationException("test"),
+            EnrichActivity = (_, _) => throw new InvalidOperationException("test"),
         });
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT 1";
@@ -402,7 +403,7 @@ public sealed class TelemetryDbConnectionTests
         {
             EmitTraces = false,
             EmitMetrics = true,
-            EnrichMetrics = (tags, cmd) => throw new InvalidOperationException("test"),
+            EnrichMetrics = (_, _) => throw new InvalidOperationException("test"),
         });
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT 1";

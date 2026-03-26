@@ -10,9 +10,8 @@ using Xunit;
 
 namespace kasthack.telemetry.dbconnection.tests;
 
-internal sealed class TestDbContext : DbContext
+internal sealed class TestDbContext(DbContextOptions<TestDbContext> options) : DbContext(options)
 {
-    public TestDbContext(DbContextOptions<TestDbContext> options) : base(options) { }
     public DbSet<TestEntity> Items { get; set; } = null!;
 }
 
@@ -112,7 +111,7 @@ public sealed class TelemetryDbConnectionEfTests : IDisposable
         using var listener = new ActivityListener
         {
             ShouldListenTo = source => source.Name == TelemetryDbConnectionInstrumentation.ActivitySourceName,
-            Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllDataAndRecorded,
+            Sample = (ref _) => ActivitySamplingResult.AllDataAndRecorded,
             ActivityStarted = activities.Add,
         };
         ActivitySource.AddActivityListener(listener);
@@ -142,7 +141,7 @@ public sealed class TelemetryDbConnectionEfTests : IDisposable
             using var listener = new ActivityListener
             {
                 ShouldListenTo = source => source.Name == TelemetryDbConnectionInstrumentation.ActivitySourceName,
-                Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllDataAndRecorded,
+                Sample = (ref _) => ActivitySamplingResult.AllDataAndRecorded,
                 ActivityStarted = activities.Add,
             };
             ActivitySource.AddActivityListener(listener);
