@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <PackageId>kasthack.telemetry.dbconnection.ef</PackageId>
+    <Description>Entity Framework Core interceptor that wraps DbConnection with OpenTelemetry-compatible telemetry.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <AssemblyAttribute Include="System.CLSCompliantAttribute">
+      <_Parameter1>false</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\kasthack.telemetry.dbconnection\kasthack.telemetry.dbconnection.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" />
+  </ItemGroup>
+
+</Project>

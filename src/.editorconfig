@@ -261,3 +261,9 @@ dotnet_naming_style.underscored_camelcase.required_prefix = _
 dotnet_naming_style.underscored_camelcase.required_suffix = 
 dotnet_naming_style.underscored_camelcase.word_separator = 
 dotnet_naming_style.underscored_camelcase.capitalization = camel_case
+
+# CA1515: Consider making public types internal
+dotnet_diagnostic.CA1515.severity = suggestion
+
+# CA1849: Call async methods when in an async method
+dotnet_diagnostic.CA1849.severity = suggestion

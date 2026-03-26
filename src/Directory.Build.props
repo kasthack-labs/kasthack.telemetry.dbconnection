@@ -20,18 +20,22 @@
     <!-- 4. all warnings are errors -->
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
 
-    <!-- Enable docs: https://learn.microsoft.com/en-us/dotnet/core/project-sdk/msbuild-props#publishdocumentationfile -->
+    <!-- Enable doc gen: https://learn.microsoft.com/en-us/dotnet/core/project-sdk/msbuild-props#publishdocumentationfile -->
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <PublishReferencesDocumentationFiles>true</PublishReferencesDocumentationFiles>
     <PublishDocumentationFile>true</PublishDocumentationFile>
     <PublishDocumentationFiles>true</PublishDocumentationFiles>
+
+    <!-- Global code settings -->
+    <ImplicitUsings>enable</ImplicitUsings>
+    <NoWarn>$(NoWarn);CS1591;NU1701;</NoWarn>
 
     <!-- Nuget options -->
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
     <IsPackable>true</IsPackable>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageLicenseExpression>AGPL-3.0-or-later</PackageLicenseExpression>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
 
     <!-- Package validation: https://learn.microsoft.com/en-us/dotnet/fundamentals/package-validation/overview -->
     <EnablePackageValidation>true</EnablePackageValidation>
