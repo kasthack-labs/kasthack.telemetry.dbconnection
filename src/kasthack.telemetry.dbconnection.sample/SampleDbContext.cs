@@ -5,7 +5,7 @@ namespace kasthack.telemetry.dbconnection.sample;
 /// <summary>Minimal EF Core context backed by SQLite in-memory.</summary>
 public sealed class SampleDbContext(DbContextOptions<SampleDbContext> options) : DbContext(options)
 {
-    public DbSet<Product> Products { get; set; }
+    public DbSet<Product> Products { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
         => modelBuilder.Entity<Product>().HasKey(p => p.Id);
