@@ -16,7 +16,7 @@ A set of .NET NuGet packages that wrap any `DbConnection` with OpenTelemetry-com
 
 ## Why does this exist?
 
-While some ADO.net drivers has telemetry support, kasthack.telemetry.dbconnection has
+While some ADO.net drivers have telemetry support, kasthack.telemetry.dbconnection has
 
 - ✅**Metrics support.** Most drivers don't do that.
 - ✅**Correct reader timing** — the span for `ExecuteReader` stays open until the `DbDataReader` is disposed, capturing the full time spent reading rows; built-in SqlClient tracing closes the span at execute time and misses reader duration.
