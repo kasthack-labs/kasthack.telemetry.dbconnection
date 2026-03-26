@@ -99,7 +99,7 @@ new TelemetryDbConnectionOptions
     /*
         Metric tag enrichment with DbCommand
     */
-    EnrichMetrics  = (tags, conn) => tags.Add(new("app.tenant", tenantId)),
+    EnrichMetrics  = (tags, command) => tags.Add(new("app.tenant", tenantId)),
 }
 ```
 
