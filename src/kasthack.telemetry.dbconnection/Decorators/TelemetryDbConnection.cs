@@ -335,7 +335,7 @@ public sealed class TelemetryDbConnection : DbConnection
     }
     #endregion
 
-    #region Meausurements
+    #region Measurements
 
     internal T ExecuteInstrumented<T>(DbCommand? command, Func<T> action) =>
         ExecuteInstrumentedCore<T>(GetOperationName(command), command?.CommandText, command, action);
