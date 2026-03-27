@@ -1,3 +1,4 @@
+#if NET5_0_OR_GREATER
 using System.Diagnostics;
 
 using kasthack.telemetry.dbconnection.ef;
@@ -152,3 +153,4 @@ public sealed class TelemetryDbConnectionEfTests : IDisposable
         }
     }
 }
+#endif

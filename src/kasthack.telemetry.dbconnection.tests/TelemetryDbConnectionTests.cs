@@ -110,6 +110,7 @@ public sealed class TelemetryDbConnectionTests
             $"Difference between recorded {recorded:F4}s and actual {actualSeconds:F4}s exceeds 100ms tolerance");
     }
 
+#if NETCOREAPP3_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
     [Theory]
     [InlineData(0)]
     [InlineData(1)]
@@ -141,6 +142,7 @@ public sealed class TelemetryDbConnectionTests
             }
         }
     }
+#endif
 
     public static TheoryData<string, Action<TelemetryDbConnection>> SyncOperations =>
         new()
@@ -154,13 +156,17 @@ public sealed class TelemetryDbConnectionTests
             { "cancel",   c => { using var cmd = c.CreateCommand(); cmd.CommandText = "SELECT 1"; cmd.Cancel(); } },
             { "commit",   c => { using var tx = c.BeginTransaction(); tx.Commit(); } },
             { "rollback", c => { using var tx = c.BeginTransaction(); tx.Rollback(); } },
+#if NET5_0_OR_GREATER
             { "savepoint",             c => { using var tx = c.BeginTransaction(); tx.Save("sp1"); tx.Rollback(); } },
             { "rollback_to_savepoint", c => { using var tx = c.BeginTransaction(); tx.Save("sp1"); tx.Rollback("sp1"); tx.Rollback(); } },
             { "release_savepoint",     c => { using var tx = c.BeginTransaction(); tx.Save("sp1"); tx.Release("sp1"); tx.Rollback(); } },
+#endif
             { "change_database", c => c.ChangeDatabase("MockDb") },
             { "get_schema",      c => c.GetSchema() },
             { "begin_transaction", c => { using var tx = c.BeginTransaction(); tx.Rollback(); } },
+#if NET6_0_OR_GREATER
             { "batch",           c => { using var b = c.CreateBatch(); b.ExecuteNonQuery(); } },
+#endif
         };
 
     [Theory]
@@ -178,6 +184,7 @@ public sealed class TelemetryDbConnectionTests
         Assert.Contains(activities, a => a.DisplayName == expectedOperation);
     }
 
+#if NET6_0_OR_GREATER
     public static TheoryData<string, Func<TelemetryDbConnection, Task>> AsyncOperations =>
         new()
         {
@@ -301,6 +308,7 @@ public sealed class TelemetryDbConnectionTests
 
         Assert.Contains(activities, a => a.DisplayName == expectedOperation);
     }
+#endif
 
     [Fact]
     public void EnrichActivityIsCalledWithCommand()

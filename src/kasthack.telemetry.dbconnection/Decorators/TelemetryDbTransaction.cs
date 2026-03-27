@@ -105,7 +105,7 @@ internal sealed class TelemetryDbTransaction : DbTransaction
         base.Dispose(disposing);
     }
 
-#if NET5_0_OR_GREATER
+#if NETCOREAPP3_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
     /// <inheritdoc/>
     public override async ValueTask DisposeAsync()
     {

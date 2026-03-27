@@ -1,3 +1,4 @@
+#if NET5_0_OR_GREATER
 using kasthack.telemetry.dbconnection.Decorators;
 using kasthack.telemetry.dbconnection.Options;
 
@@ -38,3 +39,4 @@ public sealed class TelemetryDbConnectionSqliteIntegrationTests
         return conn;
     }
 }
+#endif

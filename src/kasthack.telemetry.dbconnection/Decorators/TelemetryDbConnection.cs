@@ -60,7 +60,7 @@ public sealed class TelemetryDbConnection : DbConnection
     public DbConnection InnerConnection => _inner;
 
     #region DbConnection properties
-#if NET7_0_OR_GREATER
+#if NET6_0_OR_GREATER
     public override bool CanCreateBatch => _inner.CanCreateBatch;
 #endif
     protected override bool CanRaiseEvents => true;
@@ -91,7 +91,7 @@ public sealed class TelemetryDbConnection : DbConnection
     public override void ChangeDatabase(string databaseName) =>
         ExecuteInstrumented(ChangeDatabaseOperation, () => _inner.ChangeDatabase(databaseName));
 
-#if NET7_0_OR_GREATER
+#if NETCOREAPP3_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
     /// <inheritdoc/>
     public override Task ChangeDatabaseAsync(string databaseName, CancellationToken cancellationToken = default) =>
         ExecuteInstrumentedAsync(ChangeDatabaseOperation, () => _inner.ChangeDatabaseAsync(databaseName, cancellationToken));
@@ -110,7 +110,7 @@ public sealed class TelemetryDbConnection : DbConnection
         }
     }
 
-#if NET7_0_OR_GREATER
+#if NETCOREAPP3_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
     /// <inheritdoc/>
     public override Task CloseAsync() => _options.TrackConnectionManagement.HasFlag(ConnectionManagementTracking.Close)
             ? ExecuteInstrumentedAsync(CloseOperation, _inner.CloseAsync)
@@ -152,7 +152,7 @@ public sealed class TelemetryDbConnection : DbConnection
     /// <inheritdoc/>
     protected override DbCommand CreateDbCommand() => new TelemetryDbCommand(_inner.CreateCommand(), this);
 
-#if NET7_0_OR_GREATER
+#if NET6_0_OR_GREATER
     /// <inheritdoc/>
     protected override DbBatch CreateDbBatch() => new TelemetryDbBatch(_inner.CreateBatch(), this);
 #endif
@@ -189,7 +189,7 @@ public sealed class TelemetryDbConnection : DbConnection
         base.Dispose(disposing);
     }
 
-#if NET5_0_OR_GREATER
+#if NETCOREAPP3_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
     public override async ValueTask DisposeAsync()
     {
         _inner.StateChange -= _stateChangeHandler;
@@ -357,9 +357,17 @@ public sealed class TelemetryDbConnection : DbConnection
 
         return keyword.ToString().ToUpperInvariant();
 #else
-        var text = command.CommandText.TrimStart();
-        var spaceIndex = text.IndexOfAny(_whitespaceChars);
-        var keyword = spaceIndex < 0 ? text : text.Substring(0, spaceIndex);
+        var raw = command.CommandText;
+        // Manually skip leading whitespace to avoid allocating the entire trimmed string.
+        var start = 0;
+        while (start < raw.Length && Array.IndexOf(_whitespaceChars, raw[start]) >= 0)
+        {
+            start++;
+        }
+
+        var end = raw.IndexOfAny(_whitespaceChars, start);
+        // Substring only the keyword, not the whole trimmed string.
+        var keyword = end < 0 ? raw.Substring(start) : raw.Substring(start, end - start);
         return keyword.ToUpperInvariant();
 #endif
     }

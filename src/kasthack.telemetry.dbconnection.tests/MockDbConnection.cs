@@ -55,7 +55,9 @@ internal sealed class MockDbConnection : DbConnection
     protected override DbCommand CreateDbCommand() =>
         new MockDbCommand(this);
 
+#if NET6_0_OR_GREATER
     protected override DbBatch CreateDbBatch() => new MockDbBatch(this);
+#endif
 
     public override DataTable GetSchema() => new();
     public override DataTable GetSchema(string collectionName) => new();
@@ -92,8 +94,10 @@ internal sealed class MockDbCommand(MockDbConnection? connection) : DbCommand
     public override void Prepare() =>
         Thread.Sleep(_connection!.CommandDelay);
 
+#if NETCOREAPP3_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
     public override Task PrepareAsync(CancellationToken cancellationToken = default) =>
         Task.Delay(_connection!.CommandDelay, cancellationToken);
+#endif
 
     public override int ExecuteNonQuery()
     {
@@ -188,15 +192,20 @@ internal sealed class MockDbTransaction(MockDbConnection connection, IsolationLe
     public override void Commit() =>
         Thread.Sleep(_connection.CommandDelay);
 
+#if NET6_0_OR_GREATER
     public override Task CommitAsync(CancellationToken cancellationToken = default) =>
         Task.Delay(_connection.CommandDelay, cancellationToken);
+#endif
 
     public override void Rollback() =>
         Thread.Sleep(_connection.CommandDelay);
 
+#if NET6_0_OR_GREATER
     public override Task RollbackAsync(CancellationToken cancellationToken = default) =>
         Task.Delay(_connection.CommandDelay, cancellationToken);
+#endif
 
+#if NET5_0_OR_GREATER
     public override bool SupportsSavepoints => true;
 
     public override void Save(string savepointName) => Thread.Sleep(_connection.CommandDelay);
@@ -213,6 +222,7 @@ internal sealed class MockDbTransaction(MockDbConnection connection, IsolationLe
 
     public override Task ReleaseAsync(string savepointName, CancellationToken cancellationToken = default) =>
         Task.Delay(_connection.CommandDelay, cancellationToken);
+#endif
 }
 
 internal sealed class MockDbParameterCollection : DbParameterCollection{
@@ -307,6 +317,7 @@ internal sealed class MockDbParameterCollection : DbParameterCollection{
         _items[IndexOf(parameterName)] = value;
 }
 
+#if NET6_0_OR_GREATER
 internal sealed class MockDbBatch(MockDbConnection connection) : DbBatch
 {
 #pragma warning disable CA2213 // Mock object
@@ -387,3 +398,4 @@ internal sealed class MockDbBatchCommandCollection : DbBatchCommandCollection
     protected override DbBatchCommand GetBatchCommand(int index) => _items[index];
     protected override void SetBatchCommand(int index, DbBatchCommand batchCommand) => _items[index] = batchCommand;
 }
+#endif

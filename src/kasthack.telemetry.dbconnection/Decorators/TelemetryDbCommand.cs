@@ -90,7 +90,7 @@ public sealed class TelemetryDbCommand : DbCommand
     /// <inheritdoc/>
     public override void Prepare() => _connection.ExecuteInstrumented(PrepareOperation, _inner.Prepare);
 
-#if NET6_0_OR_GREATER
+#if NETCOREAPP3_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
     /// <inheritdoc/>
     public override Task PrepareAsync(CancellationToken cancellationToken = default) =>
         _connection.ExecuteInstrumentedAsync(PrepareOperation, () => _inner.PrepareAsync(cancellationToken));
