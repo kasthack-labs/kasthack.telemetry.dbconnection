@@ -42,6 +42,7 @@ public abstract class TelemetryDbConnectionIntegrationTests : IDisposable
         Assert.Equal(1, cmd.ExecuteNonQuery());
     }
 
+#if NETCOREAPP3_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
     [Fact]
     public async Task ExecuteNonQueryAsyncReturnsAffectedRowCount()
     {
@@ -85,6 +86,7 @@ public abstract class TelemetryDbConnectionIntegrationTests : IDisposable
             Assert.Equal("world", await cmd.ExecuteScalarAsync(TestContext.Current.CancellationToken));
         }
     }
+#endif
 
     // ── DataReader works ─────────────────────────────────────────────────────
 
@@ -115,6 +117,7 @@ public abstract class TelemetryDbConnectionIntegrationTests : IDisposable
         Assert.False(reader.Read());
     }
 
+#if NETCOREAPP3_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
     [Fact]
     public async Task ExecuteReaderAsyncReadsMultipleRows()
     {
@@ -146,6 +149,7 @@ public abstract class TelemetryDbConnectionIntegrationTests : IDisposable
             }
         }
     }
+#endif
 
     // ── Transactions work ────────────────────────────────────────────────────
 
@@ -183,6 +187,7 @@ public abstract class TelemetryDbConnectionIntegrationTests : IDisposable
         Assert.Equal(0L, Convert.ToInt64(check.ExecuteScalar()));
     }
 
+#if NET6_0_OR_GREATER
     [Fact]
     public async Task TransactionCommitAsyncPersistsChanges()
     {
@@ -232,9 +237,11 @@ public abstract class TelemetryDbConnectionIntegrationTests : IDisposable
             Assert.Equal(0L, Convert.ToInt64(await check.ExecuteScalarAsync(TestContext.Current.CancellationToken)));
         }
     }
+#endif
 
     // ── Batches work ─────────────────────────────────────────────────────────
 
+#if NET6_0_OR_GREATER
     [Fact]
     public void CanCreateBatchMirrorsInnerConnection()
     {
@@ -293,6 +300,7 @@ public abstract class TelemetryDbConnectionIntegrationTests : IDisposable
             Assert.Equal(2L, Convert.ToInt64(await check.ExecuteScalarAsync(TestContext.Current.CancellationToken)));
         }
     }
+#endif
 
     // ── Enlist transaction works ─────────────────────────────────────────────
 

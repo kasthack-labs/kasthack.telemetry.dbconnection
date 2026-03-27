@@ -170,6 +170,7 @@ public sealed class TelemetryDbDataReader : DbDataReader
         base.Dispose(disposing);
     }
 
+#if NETCOREAPP3_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
     /// <inheritdoc/>
     public override async ValueTask DisposeAsync()
     {
@@ -178,6 +179,7 @@ public sealed class TelemetryDbDataReader : DbDataReader
 
         await base.DisposeAsync().ConfigureAwait(false);
     }
+#endif
 
     private void FinishMeasurement()
     {

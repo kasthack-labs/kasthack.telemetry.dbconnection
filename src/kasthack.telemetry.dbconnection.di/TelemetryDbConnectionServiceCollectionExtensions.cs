@@ -29,7 +29,11 @@ public static class TelemetryDbConnectionServiceCollectionExtensions
         this IServiceCollection services,
         Action<TelemetryDbConnectionOptions>? configure = null)
     {
-        ArgumentNullException.ThrowIfNull(services);
+        if (services is null)
+        {
+            throw new ArgumentNullException(nameof(services));
+        }
+
         RegisterFactory(services, serviceKey: null, configure);
         return services;
     }
@@ -60,8 +64,16 @@ public static class TelemetryDbConnectionServiceCollectionExtensions
         Action<TelemetryDbConnectionOptions>? configure = null,
         ServiceLifetime connectionLifetime = ServiceLifetime.Scoped)
     {
-        ArgumentNullException.ThrowIfNull(services);
-        ArgumentNullException.ThrowIfNull(connectionFactory);
+        if (services is null)
+        {
+            throw new ArgumentNullException(nameof(services));
+        }
+
+        if (connectionFactory is null)
+        {
+            throw new ArgumentNullException(nameof(connectionFactory));
+        }
+
         RegisterFactory(services, serviceKey: null, configure);
         RegisterConnection(services, serviceKey: null, connectionFactory, connectionLifetime);
         return services;
@@ -87,8 +99,16 @@ public static class TelemetryDbConnectionServiceCollectionExtensions
         object serviceKey,
         Action<TelemetryDbConnectionOptions>? configure = null)
     {
-        ArgumentNullException.ThrowIfNull(services);
-        ArgumentNullException.ThrowIfNull(serviceKey);
+        if (services is null)
+        {
+            throw new ArgumentNullException(nameof(services));
+        }
+
+        if (serviceKey is null)
+        {
+            throw new ArgumentNullException(nameof(serviceKey));
+        }
+
         RegisterFactory(services, serviceKey, configure);
         return services;
     }
@@ -120,9 +140,21 @@ public static class TelemetryDbConnectionServiceCollectionExtensions
         Action<TelemetryDbConnectionOptions>? configure = null,
         ServiceLifetime connectionLifetime = ServiceLifetime.Scoped)
     {
-        ArgumentNullException.ThrowIfNull(services);
-        ArgumentNullException.ThrowIfNull(serviceKey);
-        ArgumentNullException.ThrowIfNull(connectionFactory);
+        if (services is null)
+        {
+            throw new ArgumentNullException(nameof(services));
+        }
+
+        if (serviceKey is null)
+        {
+            throw new ArgumentNullException(nameof(serviceKey));
+        }
+
+        if (connectionFactory is null)
+        {
+            throw new ArgumentNullException(nameof(connectionFactory));
+        }
+
         RegisterFactory(services, serviceKey, configure);
         RegisterConnection(services, serviceKey, connectionFactory, connectionLifetime);
         return services;

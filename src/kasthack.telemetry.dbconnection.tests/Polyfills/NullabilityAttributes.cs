@@ -1,0 +1,8 @@
+#if NETSTANDARD2_0 || NETFRAMEWORK
+// Polyfill for nullable reference type attributes not available in netstandard2.0 / .NET Framework
+namespace System.Diagnostics.CodeAnalysis
+{
+    [AttributeUsage(AttributeTargets.Field | AttributeTargets.Parameter | AttributeTargets.Property | AttributeTargets.ReturnValue)]
+    internal sealed class AllowNullAttribute : Attribute { }
+}
+#endif

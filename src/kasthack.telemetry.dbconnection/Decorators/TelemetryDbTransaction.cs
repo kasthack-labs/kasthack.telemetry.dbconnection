@@ -36,8 +36,10 @@ internal sealed class TelemetryDbTransaction : DbTransaction
     /// <inheritdoc/>
     protected override DbConnection DbConnection => _connection;
 
+#if NET5_0_OR_GREATER
     /// <inheritdoc/>
     public override bool SupportsSavepoints => _inner.SupportsSavepoints;
+#endif
 
     // ── Commit / Rollback ────────────────────────────────────────────────────
 
@@ -45,18 +47,23 @@ internal sealed class TelemetryDbTransaction : DbTransaction
     public override void Commit() =>
         _connection.ExecuteInstrumented(CommitOperation, _inner.Commit);
 
+#if NET6_0_OR_GREATER
     /// <inheritdoc/>
     public override Task CommitAsync(CancellationToken cancellationToken = default) =>
         _connection.ExecuteInstrumentedAsync(CommitOperation, () => _inner.CommitAsync(cancellationToken));
+#endif
 
     /// <inheritdoc/>
     public override void Rollback() =>
         _connection.ExecuteInstrumented(RollbackOperation, _inner.Rollback);
 
+#if NET6_0_OR_GREATER
     /// <inheritdoc/>
     public override Task RollbackAsync(CancellationToken cancellationToken = default) =>
         _connection.ExecuteInstrumentedAsync(RollbackOperation, () => _inner.RollbackAsync(cancellationToken));
+#endif
 
+#if NET5_0_OR_GREATER
     // ── Savepoints ───────────────────────────────────────────────────────────
 
     /// <inheritdoc/>
@@ -82,6 +89,7 @@ internal sealed class TelemetryDbTransaction : DbTransaction
     /// <inheritdoc/>
     public override Task ReleaseAsync(string savepointName, CancellationToken cancellationToken = default) =>
         _connection.ExecuteInstrumentedAsync(ReleaseSavepointOperation, () => _inner.ReleaseAsync(savepointName, cancellationToken));
+#endif
 
     // ── Disposal ─────────────────────────────────────────────────────────────
 
@@ -97,6 +105,7 @@ internal sealed class TelemetryDbTransaction : DbTransaction
         base.Dispose(disposing);
     }
 
+#if NETCOREAPP3_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
     /// <inheritdoc/>
     public override async ValueTask DisposeAsync()
     {
@@ -109,4 +118,5 @@ internal sealed class TelemetryDbTransaction : DbTransaction
         await base.DisposeAsync().ConfigureAwait(false);
         GC.SuppressFinalize(this);
     }
+#endif
 }
